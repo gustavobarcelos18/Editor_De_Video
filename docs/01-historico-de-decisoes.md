@@ -106,6 +106,10 @@ do Resolve (externos provavelmente só no Studio); sem decodificação/codifica�
 Estratégia com Rota A (importar arquivo) e Rota B (script interno), efeitos animados renderizados pelo app e mídia
 intermediária só dos trechos usados. **Pendente:** verificação prática no PC de casa. → Seção 6.5.
 
+> **Parcialmente substituído pelos §16 e §17.** A pesquisa do criador confirmou que o gratuito não tem *encoding* por
+> GPU. A *decodificação* por GPU não foi confirmada nem descartada: passou a ser item de teste no spike. O scripting
+> externo também segue como teste, com o `README.txt` instalado com o Resolve como fonte oficial.
+
 ## 12. Documentação e repositório
 
 **Pedido:** estruturar tudo em documento para retomar no PC de casa; depois, colocar no repositório e subir no GitHub;
@@ -178,6 +182,48 @@ que FCPXML e scripting quase não aparecem nos comparativos free × Studio.
 **Decisão:** teste prático, com a documentação oficial como preparação. Fonte da API de scripts = `README.txt`
 instalado com o Resolve (versão exata). O kit de teste (FCPXML, script interno, clipes H.264/HEVC 8-bit, roteiro de
 checagem) entra como tarefa da Fase 1 e roda no PC de casa. → Seções 6.5 e 7 (Fase 1).
+
+## 18. Revisão do plano: inconsistências e riscos técnicos
+
+**Pedido:** analisar o projeto e os documentos em busca de falhas, dúvidas, pontos em aberto e melhorias.
+
+**Inconsistências corrigidas:**
+
+| # | Ponto levantado | Resposta do criador | Decisão / impacto no plano |
+|---|---|---|---|
+| 1 | Diagrama da seção 5.1 mostrava gravação em `.mkv` | Alterar para Hybrid MP4 | Diagrama corrigido |
+| 2 | "Render final fora de escopo" contradizia `cronista render`, efeitos renderizados e Shorts finalizados | Reescrever | Fora de escopo passa a ser "substituir o Resolve como editor"; o app pode codificar quando é só execução (seção 1) |
+| 3 | Ambiguidade: um vídeo de 30–50 min ou episódios semanais? | Um vídeo só de 30–50 min, feito a partir de várias horas de gameplay em sessões de 3 h, 6 h, 10 h etc. | Produto = um vídeo por série; sessões de duração variável; um dia pode atravessar sessões; "episódio" trocado por "vídeo" (seções 0.1, 1, 2, 4.1, 5.4, 5.6, 6.5, Fases 7–9) |
+| 4 | Nomes das skills diferentes na seção 5.5 | Corrigir | `/roteirizar` e `/humanizar`; perfil de voz é guia de estilo usado por elas |
+| 5 | §11 deste histórico não marcado como substituído | Conferir | Nota de substituição parcial adicionada ao §11 |
+| 6 | `.gitignore` ignoraria assets do brand kit, o `.env.example` e não separava config local | Corrigir | Exceção para `packages/brand-kit/`, `!.env.example`, `config/*.local.yaml` e `.claude/settings.local.json` ignorados; `dev.yaml`/`prod.yaml` versionados sem caminhos pessoais (seção 5.6) |
+
+**Riscos técnicos corrigidos** (pedido: "corrija os riscos técnicos; se houver dúvida, me faça pergunta"):
+
+| # | Risco | Resposta do criador | Decisão / impacto no plano |
+|---|---|---|---|
+| 1 | No OBS o filtro vale para a fonte, não para a faixa: RNNoise "só no mix" não funciona com uma fonte só | — | Microfone em duas fontes: com RNNoise → faixa 1; sem filtro → faixa 3 (seção 2) |
+| 2 | FCPXML não carrega cor de marcador | — | Cor via EDL de marcadores do Resolve ou script interno; item do spike (seções 6.3, 6.5, Fase 6) |
+| 3 | Não se sabe se o FCPXML mapeia faixa 2 → A1 e faixa 3 → A2 | — | Item do spike; alternativa com WAVs extraídos (seções 6.3, 6.5) |
+| 4 | Script Python no OBS exige Python específico e talvez não exponha a função de marcador | Perguntou se não pode usar os marcadores do OBS; esclareceu que o marcador serve para indicar que algo aconteceu, não para definir capítulo | Os marcadores **são** os do OBS (o Hybrid MP4 os chama tecnicamente de "capítulo", mas não cria capítulo no vídeo). Termo trocado para "marcador do OBS". Quem cria o marcador com tipo e dia fica em aberto: A (obs-websocket, recomendada), B (Lua), C (hotkey nativa) (seção 4 e seção 9) |
+| 5 | Hotkeys não chegam a jogos rodando como administrador ou com anti-cheat | — | Rodar como administrador ou usar dispositivo físico; verificar no PC de casa (seção 4) |
+| 6 | Hybrid MP4 interrompido fica fragmentado | — | Remux sem recodificar na ingestão; item do spike (seções 2, 6.5, Fase 1) |
+| 7 | 60 × 59,94 fps causa deriva nos cortes | 60 fps exatos | Gravação, timeline, timelapses e cartelas em 60 fps (seções 2, 6.3) |
+| 8 | Navegador toca só a primeira faixa de áudio | — | Proxy H.264 + AAC com uma faixa e `faststart`; waveform a partir dos WAVs (Fase 1) |
+| 9 | OCR ilegível no proxy 360p | — | OCR em frames do master (seção 5.2, Fase 3) |
+| 10 | PaddleOCR e DeepFilterNet arriscados no Windows/Python 3.12 | RapidOCR + teste | ML em PyTorch + ONNX Runtime; OCR com RapidOCR; DeepFilterNet só se melhorar o WER no benchmark (seções 3, 5.2, Fases 1–3) |
+| 11 | Processamento disputa a GPU com o jogo | Automático, com pausa | Começa ao fim da gravação e pausa com o OBS gravando ou jogo em tela cheia (seção 4.1) |
+| 12 | CI só em Linux, produção em Windows | — | CI em Ubuntu e Windows (seção 5.6) |
+
+**Dias na tela:** o criador informou que a contagem de dias aparece na tela, mas que isso é decidido na hora da
+edição. → `Início Dia N` passa a ser uma proposta de divisão; o número final é ajustado no Studio ou no Resolve;
+cartelas e contador de dias saem editáveis (título Text+/Fusion ou regenerados pelo app), com item no spike
+(seções 4, 6.3, 6.5). Contador de dias por projeto, persistido entre sessões; sem tecla de correção.
+
+As demais perguntas e sugestões da revisão (Fase 1.5 com rough cut só de marcadores, divisão da Fase 1, contratos via OpenAPI,
+gabarito com dois gêneros, critérios de aceite numéricos, backup na Fase 1, retenção × relink, política do PC do
+trabalho, termos do `claude -p`, licenças do Remotion/modelos, macros do Fusion) foram apresentados como sugestões e
+**ainda não foram decididos**.
 
 ---
 
