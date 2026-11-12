@@ -5,6 +5,12 @@ data/
 *.mov
 *.wav
 
+# Exceção: assets do brand kit são versionados (migrar para Git LFS se crescerem)
+!packages/brand-kit/**
+
+# Configuração: dev.yaml/prod.yaml são versionados; caminhos de cada máquina ficam nos *.local.yaml
+config/*.local.yaml
+
 # Python
 __pycache__/
 *.py[cod]
@@ -21,8 +27,12 @@ dist/
 # Ambiente e IDE
 .env
 .env.*
+!.env.example
 .vscode/
 .idea/
 *.log
 Thumbs.db
 .DS_Store
+
+# Claude Code (configurações locais da máquina)
+.claude/settings.local.json
