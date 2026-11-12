@@ -134,13 +134,28 @@ Um documento no claude.ai chegou a ser iniciado e ficou incompleto (4 de 8 seç�
 | 11 | Backup | Se funcionar, assinar nuvem ou montar NAS | `StorageBackend` trocável; backup imediato do que é pequeno; política de retenção (seção 5.6) |
 | 12 | Fluxo git | Branch por fase, commits no nome dele, revisão com Opus, CI no GitHub Actions se necessário | Seção 5.6 |
 
+## 14. Revisão do plano: dúvidas levantadas pelo Claude
+
+| # | Dúvida | Resposta do criador | Decisão / impacto no plano |
+|---|---|---|---|
+| 1 | O que é "dia" em jogos sem dia (EA FC, GTA V)? | O dia é fictício, só define progresso e passagem de tempo | Hotkey `Início Dia N` passa a ser obrigatória e é a fonte universal de capítulos (seção 4) |
+| 2 | Fala ao vivo × roteiro | A fala ao vivo é preferida (reação espontânea); o roteiro complementa explicando o que foi feito, as decisões, o porquê, o que vem a seguir e o que ele pensava | Roteiro só nos espaços sem fala ao vivo; story-pack inclui a fala ao vivo transcrita (seções 6 e 6.3) |
+| 3 | MKV ou Hybrid MP4? | Hybrid MP4 | Seção 2 |
+| 4 | Pausa/divisão de arquivo no OBS quebram o tempo dos marcadores | Perguntou como resolver | Capítulo no arquivo (tempo de mídia) como fonte primária + diário de eventos com pausas e trocas de arquivo, reconciliados na ingestão; testes com fixtures (seção 4) |
+| 5 | Usa facecam? | Não | Shorts e thumbnails só com gameplay (seções 6.6 e 6.7) |
+
+## 15. Ajustes de consistência
+
+**Pedido:** reforçar que o sistema precisa ser universal, corrigir a ordem das seções e criar o `CLAUDE.md`.
+A verificação do Resolve gratuito fica com o criador, que vai pesquisar e trazer o resultado.
+
+**Decisão:** removidas as menções a calibração/adaptadores por jogo no núcleo (seções 2, 3, 4, 5.5, Fase 7 e riscos):
+o perfil genérico é o padrão, perfis de jogo são YAML aprendidos com o feedback, e `adapters/` fica só para leitores
+de mods opcionais. A conta de horas da seção 2 passou a partir do vídeo final (~15 min de gravação por "dia"), sem
+depender do relógio do Minecraft. Seção 6.5 movida para antes da 6.6. Criado o `CLAUDE.md` com as regras que não se negociam.
+
 ---
 
 ## Decisões em aberto
 
-1. Verificar na prática o que o Resolve gratuito aceita (seção 6.5 do plano).
-2. Testar a FIFINE SC3 como dispositivo de marcação.
-3. Gravar a gameplay de teste (~30 min) e anotar o gabarito.
-4. Modelo de thumbnail do canal.
-5. Identidade visual e sonora do canal.
-6. O criador usa facecam?
+A lista atual fica na seção 9 do [plano mestre](00-plano-mestre.md).

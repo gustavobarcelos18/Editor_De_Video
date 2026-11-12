@@ -89,9 +89,12 @@ precisa permitir crescer depois.
 
 | Referência | Conta |
 |---|---|
-| Minecraft: 1 dia do jogo = 20 min reais | 100 dias ≈ 33 h (pulando noites dormindo: ~17–25 h) |
 | Taxa de compressão típica do formato | 30:1 a 50:1 |
 | Vídeo final de 30–50 min | **≈ 20–35 h de gravação bruta** |
+| Média por "dia" (fictício) | 25 h ÷ 100 dias ≈ **15 min de gravação por dia** |
+
+A conta parte da duração do vídeo final, não do relógio do jogo: como o "dia" é fictício (seção 4), vale para
+qualquer jogo. (Só como comparação: no Minecraft, 1 dia do jogo = 20 min reais.)
 
 Recomendação: mirar **25 h** e usar a Fase 4 para medir a taxa real das suas sessões. Abaixo de ~15 h o vídeo
 tende a ficar sem "respiro" de farm/timelapse e com poucas falhas para gerar humor.
@@ -100,7 +103,10 @@ tende a ficar sem "respiro" de farm/timelapse e com poucas falhas para gerar hum
 → **Masters no HD de 2,5 TB**. **Proxies 360p (~0,5 GB/h), cache e banco no SSD** (é ali que a análise lê o tempo todo).
 
 **Configuração do OBS sugerida:**
-- Contêiner: MKV ou Hybrid MP4 (sobrevive a quedas e suporta marcadores de capítulo).
+- Contêiner: **Hybrid MP4** (decidido): sobrevive a quedas e suporta marcadores de capítulo, que o Cronista usa
+  como fonte primária do tempo dos marcadores (ver seção 4).
+- Evitar pausar a gravação e a divisão automática de arquivo. O sistema tolera as duas coisas (seção 4), mas é menos
+  um ponto de falha.
 - Faixa 1 = mix · Faixa 2 = **jogo** · Faixa 3 = **microfone**. (Faixa 4 para Discord/amigos não é necessária:
   só a voz do criador aparece nas gravações.)
 - Microfone com supressão de ruído do OBS (RNNoise) **só na faixa de mix**. A faixa 3 fica crua, e o pipeline faz o próprio tratamento.
@@ -119,22 +125,28 @@ Volume absoluto não serve como sinal. A estratégia tem quatro camadas:
    - Características usadas: fala, risada, grito, aumento súbito de tom/energia **em relação à sua média da sessão**.
 3. **Jogo → classificar o som, não medir o volume.**
    - Classificador de eventos sonoros pré-treinado (PANNs/BEATs/CLAP), com rótulos como explosão, música, impacto, multidão.
-   - **Linha de base adaptativa:** mediana móvel por sessão e por "contexto" (bioma, menu, cidade). Pisada em pedra
+   - **Linha de base adaptativa:** mediana móvel por sessão e por "contexto visual" (descoberto automaticamente agrupando cenas parecidas, ex.: menu, área aberta, cidade, caverna; nada declarado por jogo). Pisada em pedra
      é repetitiva e periódica, então gera **baixa novidade**. O que pontua é a *mudança* em relação ao baseline
      (novidade espectral), não a altura do som.
    - Detecção de periodicidade: sons rítmicos e constantes (passos, mineração, corte de árvore) são sinal de **rotina/farm**.
-4. **Calibração por jogo.** Cada adaptador define pesos e rótulos ignorados (ex.: no Minecraft, "som de bloco
-   quebrando" vale farm). O feedback da revisão (aceito/rejeitado) recalibra esses pesos (Fase 7).
+4. **Calibração universal, refinada pelo uso.** Os pesos padrão valem para qualquer jogo (o perfil genérico).
+   O feedback da revisão (aceito/rejeitado) recalibra primeiro os pesos do perfil genérico e, quando houver dados
+   suficientes de um jogo, gera um **perfil de jogo declarativo** (YAML) com ajustes finos, por exemplo "neste jogo,
+   som repetitivo de impacto = farm". O perfil é aprendido, não escrito à mão, e nunca é requisito (Fase 7).
 
 ---
 
 ## 4. Marcadores por hotkey
 
 **Um toque já basta.** Ele quer dizer "aqui teve algo". Normalmente você aperta *depois* do acontecimento, então
-o sistema olha para trás (janela padrão de 60–90 s, ajustável por jogo) e encontra os limites reais do momento
+o sistema olha para trás (janela padrão de 60–90 s, ajustável no perfil) e encontra os limites reais do momento
 usando mudança de cena, picos de áudio e fala.
 
-Hotkeys sugeridas (todas opcionais, exceto a primeira):
+Hotkeys sugeridas (obrigatórias: `Momento` e `Início Dia N`; as demais são opcionais):
+
+> **O "dia" é fictício.** É só a unidade de progresso e passagem de tempo da série, e não precisa corresponder a
+> um dia do jogo (no EA FC ou no GTA V, por exemplo, não existe dia natural). Por isso a hotkey `Início Dia N` é
+> obrigatória: ela é a única fonte universal de capítulos. OCR de dia/hora, quando o jogo mostra, serve só para conferência.
 
 | Hotkey | Significado | Uso |
 |---|---|---|
@@ -147,9 +159,26 @@ Hotkeys sugeridas (todas opcionais, exceto a primeira):
 | `Foto de progresso` | Tomada do ponto de câmera fixo | Alinhada com as anteriores para o timelapse de construção (ver 6.2) |
 | `Cinemática` | Tomada bonita/intencional | Vai direto para a biblioteca de B-roll |
 
-**Implementação:** script Python do OBS que registra as hotkeys e grava um arquivo `.markers.jsonl` ao lado da
-gravação (timestamp relativo ao início da gravação + tipo + nº do dia). Como redundância, a hotkey também cria
-um marcador de capítulo do OBS (Hybrid MP4).
+**Implementação:** script Python do OBS que registra as hotkeys e, a cada toque, grava o marcador por **dois caminhos
+independentes**:
+
+1. **Capítulo no próprio arquivo (fonte primária).** O script chama a API do OBS que adiciona um capítulo à gravação
+   Hybrid MP4, com nome `tipo|dia|id`. O OBS grava o capítulo **no tempo da mídia**, então pausas já ficam descontadas,
+   e o capítulo vai dentro do arquivo certo, mesmo com divisão automática.
+2. **Diário `.markers.jsonl` (redundância e fonte da verdade dos detalhes).** Não grava "segundos desde o início",
+   e sim um **diário de eventos** com relógio monotônico + UTC: `recording_started`, `paused`, `unpaused`,
+   `file_changed` (com o caminho do novo arquivo), `recording_stopped` e cada `marker` (tipo, dia, id).
+
+Na ingestão, o engine **reconstrói o tempo de mídia** a partir do diário (tempo do toque − início − pausas acumuladas,
+dentro do arquivo vigente) e **reconcilia** com os capítulos pelo `id`:
+- os dois batem (tolerância ~1 s) → usa o capítulo;
+- só existe o diário (arquivo sem capítulos, versão antiga do OBS) → usa o tempo reconstruído;
+- divergem → usa o capítulo e registra um aviso no relatório da sessão;
+- toque fora de gravação → ignorado com aviso.
+
+Testes com fixtures sintéticas cobrem: gravação simples, com pausas, com divisão de arquivo e com queda (arquivo sem
+`recording_stopped`). Um erro de algumas centenas de ms não importa, porque o lookback de 60–90 s absorve.
+A versão mínima do OBS e o nome exato da API de capítulos serão confirmados na Fase 1.
 
 **Dispositivo de marcação (a testar no PC de casa):** a mesa de som FIFINE SC3 é uma interface de áudio, e não se
 sabe se os botões dela enviam algum evento ao PC. Teste na Fase 1 com um script que escuta eventos HID/MIDI:
@@ -254,7 +283,8 @@ cronista/
 │     │  ├─ ingest/              # OBS, marcadores, proxies
 │     │  ├─ audio/               # VAD, transcrição, eventos, baseline
 │     │  ├─ vision/              # cenas, embeddings, OCR, VLM
-│     │  ├─ adapters/            # minecraft/, valheim/, terraria/, eafc/, gta5/, generic/
+│     │  ├─ profiles/            # perfil genérico (padrão) + carregador de perfis de jogo (YAML)
+│     │  ├─ adapters/            # interface GameAdapter para leitores de mods (opcional, só se valer a pena)
 │     │  ├─ relevance/           # fusão de sinais, segmentação, nota
 │     │  ├─ story/               # capítulos, beats, story-pack
 │     │  ├─ assembly/            # montagem da timeline, timelapse, shorts
@@ -269,6 +299,7 @@ cronista/
 │  ├─ obs/                       # script de hotkeys/marcadores
 │  ├─ resolve/                   # script interno do DaVinci Resolve
 │  └─ game-mods/                 # emissores de eventos por jogo (quando houver)
+├─ profiles/                     # perfis de jogo declarativos (YAML), gerados/ajustados pelo feedback
 ├─ .claude/skills/               # roteirista, humanizador, perfil-de-voz
 ├─ docs/                         # este plano + planos por fase + ADRs
 └─ data/  (fora do git)          # projects/<id>/{masters→HD, proxies, cache, exports}
@@ -311,6 +342,10 @@ cronista/
   frases simétricas) e reescreve com ritmo de fala.
 - **Ritmo de referência:** você escolhe vídeos de criadores que admira e o sistema extrai **métricas de ritmo**
   (duração média de plano, proporção de timelapse, intervalo entre picos). Copia-se a cadência, não o conteúdo.
+- **Fala ao vivo tem prioridade.** A narração ao vivo (A2) é a reação espontânea e nunca é coberta. O roteiro é
+  **complemento**: entra só nos espaços sem fala ao vivo e explica o que foi feito, o tipo de decisão, o porquê das
+  coisas, o que vem a seguir e o que você estava pensando no momento. O roteirista recebe, no story-pack, os trechos
+  com fala ao vivo (com transcrição) para saber onde não escrever e para dar continuidade ao que você já disse.
 - **Entrega:** a narração entra como marcadores no Resolve + arquivo SRT alinhado, para você ler e gravar por cima.
 
 ---
@@ -379,7 +414,7 @@ Trilhas da timeline exportada:
 | V3 | Cartelas "Dia N" (PNG/MOV com transparência, geradas pelo app) |
 | A1 | Áudio do jogo |
 | A2 | Sua narração ao vivo (microfone) |
-| A3 | Vazia — narração nova gravada a partir do roteiro |
+| A3 | Vazia — narração complementar gravada a partir do roteiro (só onde A2 não tem fala) |
 | A4 | Vazia — música |
 | Legendas | Roteiro (SRT importado à parte) |
 
@@ -420,24 +455,6 @@ thumbnails, para o canal ter identidade visual **e** sonora:
 - Música: Biblioteca de Áudio do YouTube ou música gerada por IA. ⚠️ Antes de monetizar, verificar a licença de uso
   comercial de cada gerador de IA; vários planos gratuitos e alguns modelos locais proíbem uso comercial.
 
-## 6.6 Shorts (todas as plataformas)
-
-Formato genérico que funciona em YouTube Shorts, TikTok e Reels:
-- 1080×1920 (9:16), **duração máxima de 13 s**, legenda gravada no vídeo e conteúdo fora das áreas cobertas pela
-  interface das plataformas (margens seguras).
-- Estrutura: **0–3 s gancho** (o pico do momento ou a pergunta) → **3–10 s desenvolvimento** → **10–13 s desfecho**,
-  com final que facilita o loop.
-- Reenquadramento 16:9 → 9:16 seguindo a região de ação (saliência); alternativa: gameplay no centro com fundo desfocado.
-- Fontes de candidatos: marcadores `Engraçado`, mortes/falhas e conquistas com nota alta.
-
-## 6.7 Thumbnails e títulos
-
-Formato a decidir junto (ver decisões em aberto). Proposta inicial:
-- O app sugere frames candidatos (momentos de pico, antes/depois de construções, chefes) com boa composição.
-- Um **modelo de thumbnail** do canal (layout, fontes, cores do brand kit, texto curto de 2–4 palavras) é preenchido
-  automaticamente, gerando 2–3 variações para teste A/B no YouTube.
-- O app também sugere títulos, passando pela mesma skill de humanização.
-
 ## 6.5 Integração com o DaVinci Resolve gratuito
 
 Levantamento feito de memória, **ainda não verificado**: a busca na web foi interrompida e o Resolve não estava
@@ -475,6 +492,26 @@ Duas formas de verificar: (a) liberar a busca na web para confirmar na documenta
 - Rodar um script interno de teste (criar projeto, importar, marcadores, LUT).
 - Medir a fluidez da timeline com master H.264 × proxy DNxHR.
 - Se o desempenho for ruim, gerar mídia intermediária só dos trechos usados.
+
+## 6.6 Shorts (todas as plataformas)
+
+Formato genérico que funciona em YouTube Shorts, TikTok e Reels:
+- 1080×1920 (9:16), **duração máxima de 13 s**, legenda gravada no vídeo e conteúdo fora das áreas cobertas pela
+  interface das plataformas (margens seguras).
+- Estrutura: **0–3 s gancho** (o pico do momento ou a pergunta) → **3–10 s desenvolvimento** → **10–13 s desfecho**,
+  com final que facilita o loop.
+- Sem facecam: a tela inteira é gameplay.
+- Reenquadramento 16:9 → 9:16 seguindo a região de ação (saliência); alternativa: gameplay no centro com fundo desfocado.
+- Fontes de candidatos: marcadores `Engraçado`, mortes/falhas e conquistas com nota alta.
+
+## 6.7 Thumbnails e títulos
+
+Formato a decidir junto (ver decisões em aberto). Proposta inicial:
+- Sem facecam: a thumbnail se apoia em frames do jogo, texto curto e elementos do brand kit (não em expressão do rosto).
+- O app sugere frames candidatos (momentos de pico, antes/depois de construções, chefes) com boa composição.
+- Um **modelo de thumbnail** do canal (layout, fontes, cores do brand kit, texto curto de 2–4 palavras) é preenchido
+  automaticamente, gerando 2–3 variações para teste A/B no YouTube.
+- O app também sugere títulos, passando pela mesma skill de humanização.
 
 ---
 
@@ -538,7 +575,7 @@ Só se avança com os critérios da fase anterior cumpridos.
 ### Fase 7 — Studio de revisão e aprendizado
 - App Next.js: lista de segmentos com player, waveform e sinais; aceitar/rejeitar/ajustar limites; editar roteiro; re-exportar.
 - Progresso dos jobs em tempo real e painel da série (seção 4.1).
-- Aprendizado: suas decisões recalibram os pesos por jogo (modelo simples e explicável primeiro).
+- Aprendizado: suas decisões recalibram os pesos do perfil genérico e geram/ajustam perfis de jogo declarativos (modelo simples e explicável primeiro).
 - ✅ Aceite: um episódio completo produzido de ponta a ponta pelo fluxo Studio → Resolve.
 
 ### Fase 8 — Acabamento automático e identidade do canal
@@ -564,7 +601,7 @@ Só se avança com os critérios da fase anterior cumpridos.
 |---|---|
 | Limites de uso do Claude Pro | Story-pack compacto; trabalho pesado no LLM local; Claude só no roteiro final |
 | Processamento lento em 25+ h | Proxies, análise de frames em baixa taxa, VLM só em candidatos, cache por etapa |
-| Jogos muito diferentes entre si | Adaptadores + perfil genérico; um jogo por vez |
+| Jogos muito diferentes entre si | Núcleo universal só com sinais agnósticos (fala, novidade, ritmo, cena, marcadores); perfis declarativos como refinamento opcional |
 | "Legal" é subjetivo | Marcadores + gabarito + aprendizado com o feedback |
 | SSD cheio | Masters no HD; política de limpeza de cache por projeto |
 | HD único com as gravações brutas | Backup imediato do que é pequeno (banco, marcadores, roteiros); NAS/nuvem depois; política de retenção |
@@ -582,6 +619,10 @@ Só se avança com os critérios da fase anterior cumpridos.
 - Processamento a cada sessão de gravação, com painel da série.
 - Código no PC do trabalho; produção no PC de casa.
 - Fluxo git: branch por fase, commits no nome do criador, revisão com Opus, CI no GitHub Actions.
+- O "dia" é fictício (unidade de progresso); hotkey `Início Dia N` obrigatória (seção 4).
+- Fala ao vivo tem prioridade; o roteiro é complemento explicativo (seção 6).
+- Contêiner Hybrid MP4; marcadores por capítulo + diário de eventos, com reconciliação (seções 2 e 4).
+- Sem facecam (seções 6.6 e 6.7).
 
 **Em aberto:**
 1. Verificar na prática os itens ⚠️ da seção 6.5 (Resolve gratuito), com o Resolve instalado no PC de casa.
@@ -589,4 +630,3 @@ Só se avança com os critérios da fase anterior cumpridos.
 3. Gravar a gameplay de teste (~30 min, com faixas separadas e marcadores) e anotar o gabarito.
 4. Modelo de thumbnail do canal (seção 6.7): definir juntos.
 5. Identidade visual e sonora do canal: definir juntos (paleta, fontes, vinheta, sons recorrentes).
-6. O criador usa facecam? (afeta thumbnails e layout dos shorts)

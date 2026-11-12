@@ -14,7 +14,7 @@ Status: planejamento concluído em linhas gerais. Nenhum código ainda. Próxima
 
 ## Retomar em outro PC ou numa nova sessão
 
-Clone o repositório, abra o Claude Code na pasta e use o prompt da seção 0 do plano mestre.
+Clone o repositório e abra o Claude Code na pasta: o `CLAUDE.md` carrega o contexto sozinho. Para a retomada guiada, use o prompt da seção 0 do plano mestre.
 
 ## Repositório
 
