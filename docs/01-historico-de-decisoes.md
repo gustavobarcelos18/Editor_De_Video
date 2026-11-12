@@ -115,11 +115,32 @@ por fim, atualizar os documentos sem retirar nenhuma informação conversada.
 estava instalado no PC do trabalho, então o repositório remoto precisa ser criado manualmente (ver README).
 Um documento no claude.ai chegou a ser iniciado e ficou incompleto (4 de 8 seções); o repositório o substitui.
 
+## 13. Pendências antes da Fase 1
+
+**Pergunta:** o que mais precisamos conversar? Foram levantados 12 pontos; respostas do criador e decisões:
+
+| # | Tema | Resposta do criador | Decisão / impacto no plano |
+|---|---|---|---|
+| 1 | Jogo inicial, vozes, nome | Não será Minecraft: precisa ser universal. Só a própria voz. O nome não importa tanto | Perfil genérico universal como padrão; perfis por jogo opcionais e declarativos. Sem faixa de Discord. Nome "Cronista" mantido (seções 1, 5.3, Fase 3) |
+| 2 | Gravações de teste | Não tem ainda; vai gravar ~30 min assim que possível | Fixtures sintéticas com FFmpeg até lá. Observação: a gameplay serve para **calibrar e testar**, não para treinar um modelo (seção 5.6) |
+| 3 | Gabarito | Topa anotar, mas não agora | Fase 1 não depende do gabarito; ele é obrigatório a partir da Fase 2 |
+| 4 | Onde programar | Código neste PC (trabalho); produção no PC de casa | Ambientes `dev` (sem GPU) e `prod` (RTX 3060) (seção 5.6) |
+| 5 | Quando processar | A cada sessão de gravação; ajuda a saber quanto produto final já existe | Projeto incremental + painel da série (seção 4.1) |
+| 6 | Ver o resultado no Resolve cedo | Não consegue configurar ou testar o Resolve agora | Esqueleto de ponta a ponta na Fase 1 com **prévia MP4 via FFmpeg** (não depende do Resolve) + FCPXML mínimo validado depois |
+| 7 | Teclas dos marcadores | Tem uma mesa de som FIFINE SC3; dá para usar um botão dela? | Spike na Fase 1: evento HID/MIDI → marcador por áudio → alternativas (F13–F24, mouse, macropad) (seção 4) |
+| 8 | Música e efeitos | Biblioteca de Áudio do YouTube ou gerada por IA; identidade visual e sonora é importante | Brand kit visual e sonoro; alerta de licença comercial para música de IA (seção 6.4) |
+| 9 | Thumbnail e títulos | Quer sugestão de thumbnail; criar um modelo do canal para gerar identidade; decidir junto | Seção 6.7 + nova Fase 9; formato do modelo em aberto |
+| 10 | Shorts | Todas as plataformas, edição genérica, prender em 3 s, **máximo 13 s** com começo, gancho e fim | Especificação na seção 6.6; candidatos na Fase 6, finalização na Fase 9 |
+| 11 | Backup | Se funcionar, assinar nuvem ou montar NAS | `StorageBackend` trocável; backup imediato do que é pequeno; política de retenção (seção 5.6) |
+| 12 | Fluxo git | Branch por fase, commits no nome dele, revisão com Opus, CI no GitHub Actions se necessário | Seção 5.6 |
+
 ---
 
 ## Decisões em aberto
 
-1. Jogo da calibração inicial (sugestão: Minecraft).
-2. Há voz de amigos/Discord nas gravações?
-3. Nome definitivo do projeto ("Cronista" é provisório).
-4. Verificar na prática o que o Resolve gratuito aceita (seção 6.5 do plano).
+1. Verificar na prática o que o Resolve gratuito aceita (seção 6.5 do plano).
+2. Testar a FIFINE SC3 como dispositivo de marcação.
+3. Gravar a gameplay de teste (~30 min) e anotar o gabarito.
+4. Modelo de thumbnail do canal.
+5. Identidade visual e sonora do canal.
+6. O criador usa facecam?

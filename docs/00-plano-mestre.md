@@ -32,8 +32,17 @@ Checklist do PC de casa:
 
 | Tema | Decisão |
 |---|---|
-| Jogos | Minecraft, Valheim, Terraria, EA FC (modo carreira), GTA V com mods e outros |
+| Jogos | Minecraft, Valheim, Terraria, EA FC (modo carreira), GTA V com mods e outros. **O sistema deve ser universal**: nada calibrado para um jogo específico |
 | Gravação | OBS, 1920×1080 a 60 fps; narra ao vivo parte do tempo; faixas de áudio separadas |
+| Vozes | Só a voz do criador (sem Discord/amigos) |
+| Processamento | **A cada sessão de gravação**, para acompanhar quanto "produto final" já existe ao longo da série |
+| Ambientes | Código pode ser feito no PC do trabalho; produção (gravação, OBS, GPU, Resolve) no PC de casa |
+| Marcador físico | Mesa de som FIFINE SC3: verificar se um botão pode virar marcador |
+| Identidade | Identidade visual **e** sonora consistente; música da Biblioteca de Áudio do YouTube ou gerada por IA |
+| Thumbnail | Sugestão de thumbnail a partir de um modelo do canal; formato a decidir junto |
+| Shorts | Para todas as plataformas, edição genérica; **máximo 13 s**, prender em 3 s; começo, gancho e fim dentro dos 13 s |
+| Backup | Por enquanto um HD; depois nuvem ou NAS, se o projeto funcionar |
+| Fluxo git | Branch por fase, commits no nome do criador, revisão com Opus, CI no GitHub Actions |
 | Hardware | RTX 3060 12 GB, 32 GB RAM, HD 2,5 TB, SSD 450 GB |
 | Custo | Zero: modelos locais + Claude Code no plano Pro |
 | Saída | Timeline pré-montada no DaVinci Resolve gratuito + Shorts/Reels |
@@ -70,7 +79,9 @@ precisa permitir crescer depois.
   (headless `claude -p` ou skill rodada manualmente), sempre com entradas compactas por causa dos limites de uso.
   O plano Pro **não inclui acesso à API**, por isso o app não chama o Claude diretamente.
 - Jogos variados: Minecraft, Valheim, Terraria, EA FC (modo carreira), GTA V com mods e outros → o núcleo é
-  **agnóstico de jogo**, e as especificidades ficam em **adaptadores**.
+  **universal (agnóstico de jogo)**. Funciona bem sem nenhuma configuração por jogo; um **perfil de jogo** declarativo
+  (YAML, sem código) só refina, e é aprendido com o feedback da revisão. Mods que emitem eventos são bônus opcionais,
+  nunca requisito.
 
 ---
 
@@ -90,7 +101,8 @@ tende a ficar sem "respiro" de farm/timelapse e com poucas falhas para gerar hum
 
 **Configuração do OBS sugerida:**
 - Contêiner: MKV ou Hybrid MP4 (sobrevive a quedas e suporta marcadores de capítulo).
-- Faixa 1 = mix · Faixa 2 = **jogo** · Faixa 3 = **microfone** · Faixa 4 = Discord/amigos (se houver).
+- Faixa 1 = mix · Faixa 2 = **jogo** · Faixa 3 = **microfone**. (Faixa 4 para Discord/amigos não é necessária:
+  só a voz do criador aparece nas gravações.)
 - Microfone com supressão de ruído do OBS (RNNoise) **só na faixa de mix**. A faixa 3 fica crua, e o pipeline faz o próprio tratamento.
 
 ---
@@ -138,6 +150,25 @@ Hotkeys sugeridas (todas opcionais, exceto a primeira):
 **Implementação:** script Python do OBS que registra as hotkeys e grava um arquivo `.markers.jsonl` ao lado da
 gravação (timestamp relativo ao início da gravação + tipo + nº do dia). Como redundância, a hotkey também cria
 um marcador de capítulo do OBS (Hybrid MP4).
+
+**Dispositivo de marcação (a testar no PC de casa):** a mesa de som FIFINE SC3 é uma interface de áudio, e não se
+sabe se os botões dela enviam algum evento ao PC. Teste na Fase 1 com um script que escuta eventos HID/MIDI:
+1. Se algum botão gerar evento HID/MIDI → o Cronista mapeia esse botão para um marcador.
+2. Se não gerar, mas a mesa tiver pads de efeito sonoro que tocam na saída → o app pode reconhecer aquele som
+   específico na gravação como marcador (marcador por áudio). Funciona só se o som cair numa faixa gravada.
+3. Se nada funcionar → teclas F13–F24 via software de macro, botões extras do mouse ou um macropad USB barato.
+
+## 4.1 Processamento por sessão e painel da série
+
+Cada sessão é processada assim que a gravação termina (ingestão → análise → nota). A narrativa completa é montada
+no fim, mas o app mantém um **painel da série** atualizado a cada sessão:
+- minutos estimados de "produto final" por sessão e acumulados × meta do vídeo (30–50 min);
+- distribuição por tipo de momento (mortes/falhas, conquistas, chefes, construções, humor, farm);
+- dias cobertos e capítulos que ainda estão "magros" (pouco material bom).
+
+Isso responde, durante a série, "já tenho material suficiente?" e "o que está faltando gravar?". Arquiteturalmente,
+o projeto é incremental: cada sessão é independente e cacheada, e só as etapas de narrativa e montagem consideram
+todas as sessões juntas.
 
 ---
 
@@ -189,7 +220,8 @@ A arquitetura em portas/adaptadores permite colocar um gateway Nest depois, se o
 - **Pipeline de etapas puras:** cada etapa recebe artefatos e produz artefatos versionados.
   Chave de cache = hash(entrada + parâmetros + versão do modelo). Mudou um peso? Só as etapas seguintes rodam de novo.
 - **Retomável:** 30 h de vídeo não podem recomeçar do zero por causa de uma queda.
-- **Plugins por jogo:** `GameAdapter` (perfil de pesos, regiões de HUD para OCR, rótulos ignorados, leitor de logs do mod).
+- **Universal primeiro:** o perfil genérico tem que funcionar sozinho. `GameAdapter` / perfil de jogo (pesos, regiões
+  de HUD para OCR, rótulos ignorados, leitor de logs de mod) é refinamento opcional, preferencialmente declarativo.
 - **Humano no circuito:** a IA propõe e você decide. Toda decisão vira dado de treino.
 - **Explicável:** cada segmento guarda *por que* recebeu aquela nota (quais sinais contribuíram).
 
@@ -241,6 +273,32 @@ cronista/
 ├─ docs/                         # este plano + planos por fase + ADRs
 └─ data/  (fora do git)          # projects/<id>/{masters→HD, proxies, cache, exports}
 ```
+
+### 5.6 Ambientes, fluxo de desenvolvimento e armazenamento
+
+**Dois ambientes:**
+
+| Ambiente | Onde | Para quê |
+|---|---|---|
+| `dev` | PC do trabalho | Escrever código, testes unitários, CI. Tudo precisa rodar **sem GPU** (fallback CPU, modelos pequenos ou mocks) |
+| `prod` | PC de casa (RTX 3060) | Gravação, OBS, processamento real com GPU, Resolve, benchmarks |
+
+- Configuração por perfil (`config/dev.yaml`, `config/prod.yaml`); caminhos de mídia nunca fixos no código.
+- Testes que precisam de GPU ou de mídia real são marcados (`@pytest.mark.gpu`, `@pytest.mark.media`) e rodam só no PC de casa.
+- Fixtures sintéticas geradas com FFmpeg (vídeo de teste + tons/ruídos em faixas separadas) permitem testar o pipeline
+  antes de existir gameplay real.
+
+**Fluxo git:**
+- Branch por fase (`fase/1-fundacao`, `fase/2-audio`, …), merge na `main` via pull request ao fim da fase.
+- Commits no nome do criador (identidade git já configurada), mensagens no padrão Conventional Commits.
+- Revisão com Opus antes do merge (`/code-review` no PR).
+- GitHub Actions: lint (ruff, eslint), tipos (mypy, tsc) e testes unitários em CPU a cada push/PR.
+
+**Armazenamento e backup:**
+- Camada `StorageBackend` (local agora; NAS ou nuvem depois) para que a troca não mexa no restante do código.
+- Itens pequenos e valiosos (banco, marcadores, decisões de revisão, roteiros) têm backup desde o início: são poucos MB.
+- **Política de retenção** após publicar um episódio: manter só a mídia intermediária dos trechos usados (~dezenas de GB)
+  e liberar os masters brutos (~centenas de GB), se o criador quiser.
 
 ---
 
@@ -355,6 +413,31 @@ O que a IA decidir com baixa confiança fica só como `sugerir`.
 A mixagem básica foi antecipada para a Fase 6 (ganho alto, risco baixo); o restante fica na Fase 8, porque só vale
 polir quando o primeiro corte já estiver bom e o Studio permitir controlar os efeitos.
 
+**Kit de identidade do canal (brand kit):** uma única configuração versionada, consumida por VFX, cartelas, shorts e
+thumbnails, para o canal ter identidade visual **e** sonora:
+- Visual: paleta, fontes, LUT de série, estilo de cartela "Dia N", contador de mortes, molduras.
+- Sonora: vinheta de abertura, som de transição de dia, "som de morte" recorrente, loudness padrão, trilhas-tema por clima.
+- Música: Biblioteca de Áudio do YouTube ou música gerada por IA. ⚠️ Antes de monetizar, verificar a licença de uso
+  comercial de cada gerador de IA; vários planos gratuitos e alguns modelos locais proíbem uso comercial.
+
+## 6.6 Shorts (todas as plataformas)
+
+Formato genérico que funciona em YouTube Shorts, TikTok e Reels:
+- 1080×1920 (9:16), **duração máxima de 13 s**, legenda gravada no vídeo e conteúdo fora das áreas cobertas pela
+  interface das plataformas (margens seguras).
+- Estrutura: **0–3 s gancho** (o pico do momento ou a pergunta) → **3–10 s desenvolvimento** → **10–13 s desfecho**,
+  com final que facilita o loop.
+- Reenquadramento 16:9 → 9:16 seguindo a região de ação (saliência); alternativa: gameplay no centro com fundo desfocado.
+- Fontes de candidatos: marcadores `Engraçado`, mortes/falhas e conquistas com nota alta.
+
+## 6.7 Thumbnails e títulos
+
+Formato a decidir junto (ver decisões em aberto). Proposta inicial:
+- O app sugere frames candidatos (momentos de pico, antes/depois de construções, chefes) com boa composição.
+- Um **modelo de thumbnail** do canal (layout, fontes, cores do brand kit, texto curto de 2–4 palavras) é preenchido
+  automaticamente, gerando 2–3 variações para teste A/B no YouTube.
+- O app também sugere títulos, passando pela mesma skill de humanização.
+
 ## 6.5 Integração com o DaVinci Resolve gratuito
 
 Levantamento feito de memória, **ainda não verificado**: a busca na web foi interrompida e o Resolve não estava
@@ -400,15 +483,21 @@ Duas formas de verificar: (a) liberar a busca na web para confirmar na documenta
 Cada fase vira um plano de execução próprio (`docs/fase-N-*.md`), com tarefas, critérios de aceite e testes.
 Só se avança com os critérios da fase anterior cumpridos.
 
-### Fase 1 — Fundação e ingestão
+### Fase 1 — Fundação, ingestão e esqueleto de ponta a ponta
 - Monorepo, tooling (uv, ruff, mypy, pytest; pnpm, eslint), contratos, banco + migrações.
-- Orquestrador de pipeline com cache por hash, jobs persistidos, retomada e logs estruturados.
+- Ambientes `dev` (sem GPU) e `prod` (RTX 3060); fixtures sintéticas com FFmpeg; GitHub Actions (lint, tipos, testes).
+- Orquestrador de pipeline com cache por hash, jobs persistidos, retomada e logs estruturados; projeto incremental por sessão.
 - Script do OBS (hotkeys → `.markers.jsonl`) e guia de configuração do OBS.
+- Spike do dispositivo de marcação (FIFINE SC3: HID/MIDI ou marcador por áudio; senão, alternativas).
 - Ingestão: leitura das faixas, validação, proxy 360p no SSD, extração de áudio por faixa.
-- CLI: `cronista ingest <pasta>` / `cronista status`.
-- **Benchmark** dos modelos na RTX 3060.
-- **Conjunto de referência:** 2–3 h de gameplay anotadas por você à mão (o que é farm e o que é legal). É o "gabarito" das fases seguintes.
-- ✅ Aceite: ingerir 10 h sem intervenção, retomar após interrupção, proxies e marcadores corretos.
+- **Esqueleto de ponta a ponta:** gravação + marcadores → cortes simples ao redor de cada marcador → **prévia MP4
+  renderizada com FFmpeg** (valida o fluxo sem depender do Resolve) + FCPXML mínimo (validado no Resolve quando possível).
+- CLI: `cronista ingest <pasta>` / `cronista status` / `cronista preview`.
+- **Benchmark** dos modelos na RTX 3060 (no PC de casa).
+- **Gabarito:** formato e ferramenta de anotação prontos. A anotação (2–3 h, começando pela gameplay de teste de ~30 min)
+  acontece quando o criador puder; ela é obrigatória a partir da Fase 2.
+- ✅ Aceite: ingerir 10 h sem intervenção, retomar após interrupção, proxies e marcadores corretos, prévia MP4 gerada
+  a partir dos marcadores, CI verde.
 
 ### Fase 2 — Análise de áudio
 - Microfone: DeepFilterNet → Silero VAD → faster-whisper (com timestamps por palavra) → risada, grito, picos relativos.
@@ -416,17 +505,21 @@ Só se avança com os critérios da fase anterior cumpridos.
 - Saída: sinais e eventos de áudio no banco + relatório HTML da sessão (gráfico de sinais × tempo).
 - ✅ Aceite: no gabarito, teclado e respiração **não** geram eventos; fala transcrita com WER aceitável; trechos rítmicos detectados como rotina.
 
-### Fase 3 — Análise de vídeo e adaptadores de jogo
-- Detecção de cena, movimento, embeddings de frames, detecção de menu/loading/pausa/idle.
-- OCR em regiões de HUD definidas por adaptador (placar no EA FC, dia/hora quando visível).
-- Interface `GameAdapter` + adaptador genérico + primeiro adaptador completo (Minecraft sugerido; mods de eventos opcionais).
+### Fase 3 — Análise de vídeo e perfis de jogo
+- Detecção de cena, movimento, embeddings de frames, detecção de menu/loading/pausa/idle — tudo universal.
+- Tomadas cinematográficas e biblioteca de B-roll (seção 6.2).
+- OCR em regiões de HUD opcionais, definidas no perfil do jogo (placar no EA FC, dia/hora quando visível).
+- **Perfil genérico universal** como padrão + perfis de jogo declarativos (YAML) opcionais; interface `GameAdapter`
+  para leitores de mods, se algum dia valer a pena.
 - VLM local descrevendo apenas trechos candidatos.
-- ✅ Aceite: menus/loading/idle detectados com alta precisão no gabarito; adaptador plugável sem tocar no núcleo.
+- ✅ Aceite: menus/loading/idle detectados com alta precisão no gabarito **sem nenhum perfil de jogo**; perfil plugável
+  sem tocar no núcleo.
 
 ### Fase 4 — Motor de relevância
 - Fusão de sinais (áudio + vídeo + marcadores + eventos de mod) → segmentação → classificação → nota explicável.
 - Lookback dos marcadores e refino dos limites dos segmentos.
 - Métricas contra o gabarito (precisão/revocação de "farm" e de "momento legal") e medição da taxa de compressão real.
+- Painel da série (seção 4.1) no relatório: minutos estimados de produto final por sessão e acumulados.
 - ✅ Aceite: ≥ 85% dos momentos do gabarito aparecem no top de candidatos; farm identificado como farm.
 
 ### Fase 5 — Narrativa e roteiro
@@ -438,21 +531,28 @@ Só se avança com os critérios da fase anterior cumpridos.
 ### Fase 6 — Montagem e exportação
 - Montagem automática: cortes, timelapse/aceleração do farm, transições de dia, ritmo de referência.
 - Exportação OTIO → FCPXML (+ EDL), marcadores coloridos por tipo, SRT do roteiro, relink para os masters do HD.
-- Candidatos a Shorts (9:16, gancho nos 2 primeiros segundos).
+- Candidatos a Shorts (seção 6.6: até 13 s, gancho nos 3 primeiros segundos).
 - Mixagem automática básica: ducking + normalização de loudness + cadeia de voz (ganho alto com baixo risco).
 - ✅ Aceite: importar no DaVinci Resolve gratuito sem erro, com mídia linkada e marcadores visíveis.
 
 ### Fase 7 — Studio de revisão e aprendizado
 - App Next.js: lista de segmentos com player, waveform e sinais; aceitar/rejeitar/ajustar limites; editar roteiro; re-exportar.
-- Progresso dos jobs em tempo real.
+- Progresso dos jobs em tempo real e painel da série (seção 4.1).
 - Aprendizado: suas decisões recalibram os pesos por jogo (modelo simples e explicável primeiro).
 - ✅ Aceite: um episódio completo produzido de ponta a ponta pelo fluxo Studio → Resolve.
 
-### Fase 8 — Acabamento automático
+### Fase 8 — Acabamento automático e identidade do canal
+- Brand kit (identidade visual e sonora, seção 6.4).
 - Zooms/punch-ins, LUT de série, música da biblioteca com corte no beat.
 - Pacote de templates Remotion (contador de mortes, cartelas, freeze-frame + texto, barra de progresso) + SFX.
 - Modos sugerir / editável / renderizado por efeito, controlados no Studio; orçamento de efeitos por minuto.
 - ✅ Aceite: episódio exportado precisando só de narração gravada e ajustes finos; efeitos reversíveis no Resolve.
+
+### Fase 9 — Embalagem e distribuição
+- Shorts finalizados: reenquadramento 9:16, legenda gravada, margens seguras, gancho em 3 s, máximo 13 s (seção 6.6).
+- Thumbnails a partir do modelo do canal, com 2–3 variações (seção 6.7).
+- Sugestões de título humanizadas.
+- ✅ Aceite: um episódio publicado com thumbnail, título e pelo menos 3 shorts gerados pelo app e aprovados pelo criador.
 
 > O relatório HTML da Fase 2 garante visibilidade desde cedo. O Studio completo vem na Fase 7, quando já há dados reais para revisar.
 
@@ -467,10 +567,26 @@ Só se avança com os critérios da fase anterior cumpridos.
 | Jogos muito diferentes entre si | Adaptadores + perfil genérico; um jogo por vez |
 | "Legal" é subjetivo | Marcadores + gabarito + aprendizado com o feedback |
 | SSD cheio | Masters no HD; política de limpeza de cache por projeto |
+| HD único com as gravações brutas | Backup imediato do que é pequeno (banco, marcadores, roteiros); NAS/nuvem depois; política de retenção |
+| PC de desenvolvimento sem GPU | Fallback CPU, mocks e fixtures sintéticas; testes de GPU só no PC de casa |
+| Gabarito atrasado | Fase 1 não depende dele; a partir da Fase 2 ele é obrigatório para medir qualidade |
+| Licença de música gerada por IA | Verificar uso comercial antes de monetizar; Biblioteca de Áudio do YouTube como padrão seguro |
+| Sistema universal acerta menos que um ajustado por jogo | Perfis declarativos aprendidos com o feedback da revisão |
 
-## 9. Decisões em aberto
+## 9. Decisões
 
-1. Jogo da calibração inicial (sugestão: Minecraft).
-2. Há voz de amigos/Discord nas gravações? (afeta a Fase 2)
-3. Nome definitivo do projeto.
-4. Verificar na prática os itens ⚠️ da seção 6.5 (Resolve gratuito), com o Resolve instalado no PC de casa.
+**Já decididas:**
+- Sistema universal, sem jogo de calibração específico.
+- Só a voz do criador nas gravações.
+- Nome "Cronista" mantido (o nome não é prioridade).
+- Processamento a cada sessão de gravação, com painel da série.
+- Código no PC do trabalho; produção no PC de casa.
+- Fluxo git: branch por fase, commits no nome do criador, revisão com Opus, CI no GitHub Actions.
+
+**Em aberto:**
+1. Verificar na prática os itens ⚠️ da seção 6.5 (Resolve gratuito), com o Resolve instalado no PC de casa.
+2. Testar se a FIFINE SC3 serve como dispositivo de marcação (seção 4).
+3. Gravar a gameplay de teste (~30 min, com faixas separadas e marcadores) e anotar o gabarito.
+4. Modelo de thumbnail do canal (seção 6.7): definir juntos.
+5. Identidade visual e sonora do canal: definir juntos (paleta, fontes, vinheta, sons recorrentes).
+6. O criador usa facecam? (afeta thumbnails e layout dos shorts)
