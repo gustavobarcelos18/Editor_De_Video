@@ -1,0 +1,28 @@
+# Dados de mídia e cache (nunca versionar)
+data/
+*.mkv
+*.mp4
+*.mov
+*.wav
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+dist/
+
+# Ambiente e IDE
+.env
+.env.*
+.vscode/
+.idea/
+*.log
+Thumbs.db
+.DS_Store
