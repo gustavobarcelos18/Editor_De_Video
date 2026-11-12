@@ -496,6 +496,17 @@ verificado · ⚠️ = testar no spike.
   saem prontos do FFmpeg (sem Speed Warp); limpeza de voz e legendas ficam com o app.
 
 **Ainda não verificado (spike no PC de casa):**
+
+Pesquisa na web acrescenta pouco aqui: FCPXML e scripting quase não aparecem nos comparativos free × Studio.
+As fontes são a documentação oficial e o teste prático:
+- **API de scripts:** o `README.txt` instalado com o Resolve, em
+  `C:\ProgramData\Blackmagic Design\DaVinci Resolve\Support\Developer\Scripting\`. Ele corresponde exatamente à
+  versão instalada e responde se o scripting externo funciona no gratuito. Cópias não oficiais na web servem só para
+  adiantar o kit de teste, nunca como resposta final.
+- **FCPXML:** notas de versão e manual oficial como preparação; a resposta vem da importação real.
+- **Decodificação por GPU e HEVC:** só o teste responde (tocar uma gravação real observando o uso da GPU; importar,
+  tocar e renderizar um HEVC 8-bit).
+
 - ☑️ Importar timeline de FCPXML/EDL/AAF (e OTIO nas versões recentes): cortes, várias trilhas, velocidade constante, marcadores.
 - ⚠️ Transformações (zoom/posição), opacidade, transições, volume e **keyframes** via FCPXML: suporte parcial.
 - ☑️ Scripts Python/Lua **rodando de dentro do Resolve** (menu Workspace → Scripts e console).
@@ -522,7 +533,9 @@ verificado · ⚠️ = testar no spike.
      (vai para o HD e é apagado após o upload).
 - Antes de cogitar o Studio (US$ 295), medir as duas rotas. O plano não depende de nenhum recurso do Studio.
 
-**Checklist do spike (antes da Fase 6):**
+**Checklist do spike** (o kit de teste é montado na Fase 1, no PC do trabalho; roda no PC de casa assim que o Resolve
+for instalado, e obrigatoriamente antes da Fase 6):
+- Copiar o `README.txt` de scripting para `docs/referencias/` (para consulta em qualquer PC).
 - Importar um FCPXML de teste com corte, velocidade, zoom com keyframe, transição, volume, marcador e relink para os masters.
 - Rodar um script interno de teste (criar projeto, importar, marcadores, LUT).
 - Medir a fluidez da timeline com master H.264 × proxy DNxHR (confirma se há decodificação por GPU).
@@ -563,6 +576,9 @@ Só se avança com os critérios da fase anterior cumpridos.
 - Orquestrador de pipeline com cache por hash, jobs persistidos, retomada e logs estruturados; projeto incremental por sessão.
 - Script do OBS (hotkeys → `.markers.jsonl`) e guia de configuração do OBS.
 - Spike do dispositivo de marcação (FIFINE SC3: HID/MIDI ou marcador por áudio; senão, alternativas).
+- **Kit de teste do Resolve gratuito** (seção 6.5): FCPXML de exemplo (corte, velocidade, zoom com keyframe,
+  transição, volume, marcadores, relink), script interno mínimo, clipes 8-bit H.264 e HEVC gerados com FFmpeg e um
+  roteiro de checagem com campos para anotar o resultado. Montado no PC do trabalho, executado no PC de casa.
 - Ingestão: leitura das faixas, validação, proxy 360p no SSD, extração de áudio por faixa.
 - **Esqueleto de ponta a ponta:** gravação + marcadores → cortes simples ao redor de cada marcador → **prévia MP4
   renderizada com FFmpeg** (valida o fluxo sem depender do Resolve) + FCPXML mínimo (validado no Resolve quando possível).

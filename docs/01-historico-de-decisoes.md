@@ -169,6 +169,16 @@ depender do relógio do Minecraft. Seção 6.5 movida para antes da 6.6. Criado 
   mantém o fluxo auditar → rascunhar → conferir → finalizar, seleciona os padrões que valem para fala, descarta os de
   formatação e acrescenta padrões de pt-BR falado; a amostra de voz são as narrações ao vivo do criador (seção 6).
 
+## 17. Como verificar o que falta no Resolve gratuito
+
+**Entrada do criador:** documento "DaVinci Resolve gratuito: pendente de teste", com quatro pontos que a pesquisa não
+cobriu (importação de FCPXML, scripting externo no gratuito, decodificação por GPU, HEVC no Windows) e o aviso de
+que FCPXML e scripting quase não aparecem nos comparativos free × Studio.
+
+**Decisão:** teste prático, com a documentação oficial como preparação. Fonte da API de scripts = `README.txt`
+instalado com o Resolve (versão exata). O kit de teste (FCPXML, script interno, clipes H.264/HEVC 8-bit, roteiro de
+checagem) entra como tarefa da Fase 1 e roda no PC de casa. → Seções 6.5 e 7 (Fase 1).
+
 ---
 
 ## Decisões em aberto
