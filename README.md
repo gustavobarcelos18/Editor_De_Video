@@ -16,11 +16,11 @@ Status: planejamento concluído em linhas gerais. Nenhum código ainda. Próxima
 
 Clone o repositório, abra o Claude Code na pasta e use o prompt da seção 0 do plano mestre.
 
-## Subir para o GitHub (primeira vez)
+## Repositório
 
-1. Crie um repositório **privado** em github.com/new, sem README.
-2. Na pasta do projeto:
-   ```
-   git remote add origin https://github.com/<seu-usuario>/cronista.git
-   git push -u origin main
-   ```
+```
+git clone https://github.com/gustavobarcelos18/Editor_De_Video.git
+```
+
+Fluxo: branch por fase (`fase/N-nome`), pull request para a `main` ao fim de cada fase, revisão com Opus e CI no
+GitHub Actions (detalhes na seção 5.6 do plano mestre).
