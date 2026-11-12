@@ -105,6 +105,9 @@ tende a ficar sem "respiro" de farm/timelapse e com poucas falhas para gerar hum
 **Configuração do OBS sugerida:**
 - Contêiner: **Hybrid MP4** (decidido): sobrevive a quedas e suporta marcadores de capítulo, que o Cronista usa
   como fonte primária do tempo dos marcadores (ver seção 4).
+- **Vídeo 8-bit SDR** (o Resolve gratuito não lida bem com 10-bit/HDR, seção 6.5): encoder NVENC **H.264**,
+  formato de cor **NV12**, espaço de cor **Rec. 709**, faixa parcial. Nunca P010/I010 nem HDR. HEVC 8-bit só depois
+  de aprovado no spike do Resolve. A ingestão confere com `ffprobe` e avisa (ou converte) se vier 10-bit.
 - Evitar pausar a gravação e a divisão automática de arquivo. O sistema tolera as duas coisas (seção 4), mas é menos
   um ponto de falha.
 - Faixa 1 = mix · Faixa 2 = **jogo** · Faixa 3 = **microfone**. (Faixa 4 para Discord/amigos não é necessária:
@@ -337,9 +340,23 @@ cronista/
 
 - **Perfil de voz:** as transcrições das suas próprias narrações viram um guia de estilo (gírias, tamanho de frase,
   bordões, como você faz piada). O roteiro é escrito *como você fala*, não como um texto genérico.
-- **Skill `/humanizar`** (inspirada no Humanizer do GitHub, mas em pt-BR e para narração gamer): proíbe padrões
-  típicos de IA (tríades, "não é só X, é Y", conclusões motivacionais, travessões em excesso, vocabulário inflado,
-  frases simétricas) e reescreve com ritmo de fala.
+- **Skill `/humanizar`**, adaptada do [Humanizer](https://github.com/blader/humanizer) (licença MIT: pode ser
+  adaptado, mantendo o aviso de licença e o crédito). O original é baseado no guia da Wikipédia sobre sinais de texto
+  feito por IA e parte da ideia de que o modelo escolhe sempre a formulação mais provável. Nossa versão é em pt-BR e
+  para **narração falada** de gameplay:
+  - **Fluxo do original, mantido:** auditar (marcar cada sinal, do mais forte ao mais fraco) → rascunhar a reescrita →
+    conferir contra os padrões e contra os fatos do trecho → versão final. Nunca muda o que aconteceu no jogo; onde o
+    texto ficar genérico, troca por um detalhe concreto e verdadeiro tirado do story-pack.
+  - **Padrões que valem para fala** (dos 26 do original): "não é X, é Y"; frases de efeito e fechamentos dramáticos;
+    "lições" de profundidade falsa; rodeios antes de chegar ao ponto; responder a objeções que ninguém fez; tríades
+    forçadas; frases começando sempre igual; vocabulário inflado; importância exagerada; tom de vendedor; autoridade
+    vaga ("dizem que…"); evitar o simples "é/tem"; resíduo de chatbot; explicar o que o público acabou de ver.
+    Os "fracos sozinhos" (excesso de qualificadores, voz passiva) só contam quando aparecem juntos.
+  - **Padrões que não se aplicam** (o roteiro é lido em voz alta): negrito, títulos, emojis, setas e aspas curvas.
+  - **Acréscimos para pt-BR falado:** muletas de texto escrito ("vale ressaltar", "nesse sentido", "em suma",
+    "jornada", "épico" em toda frase), frases longas demais para dizer num fôlego, gerúndio em cascata.
+  - **Combinação com o perfil de voz:** o original aceita uma amostra de escrita para imitar a voz; aqui a amostra
+    são as transcrições das suas narrações ao vivo (bordões, gírias, tamanho de frase).
 - **Ritmo de referência:** você escolhe vídeos de criadores que admira e o sistema extrai **métricas de ritmo**
   (duração média de plano, proporção de timelapse, intervalo entre picos). Copia-se a cadência, não o conteúdo.
 - **Fala ao vivo tem prioridade.** A narração ao vivo (A2) é a reação espontânea e nunca é coberta. O roteiro é
@@ -457,26 +474,38 @@ thumbnails, para o canal ter identidade visual **e** sonora:
 
 ## 6.5 Integração com o DaVinci Resolve gratuito
 
-Levantamento feito de memória, **ainda não verificado**: a busca na web foi interrompida e o Resolve não estava
-instalado no PC do trabalho. ✅ = alta confiança · ⚠️ = testar no spike.
+Status: parcialmente verificado. Em 2026-11-12 o criador pesquisou as limitações do Resolve gratuito (v19/20) em
+fontes públicas (página oficial do Resolve 20, Toolfarm, CineD, Motion Array, Artlist e fórum da Blackmagic).
+A pesquisa confirma os limites de saída, codec e recursos; **não cobre** importação de FCPXML nem a API de scripts,
+que continuam para o spike prático no PC de casa. ✅ = confirmado pela pesquisa · ☑️ = alta confiança, não
+verificado · ⚠️ = testar no spike.
 
-Duas formas de verificar: (a) liberar a busca na web para confirmar na documentação oficial da Blackmagic;
-(b) instalar o Resolve no PC de casa e rodar o kit de teste do spike (mais confiável, e vira o primeiro entregável).
+**Confirmado pela pesquisa (impacto no projeto):**
+- ✅ Saída até UHD (3840×2160) a 60 fps, **sem marca d'água** e sem limite de tempo de uso. Vale também na vertical
+  (o limite de 2160 fica na altura) → vídeo 1080p60 e shorts 1080×1920 cabem com folga.
+- ✅ Fairlight (áudio) e Fusion (VFX, Text+, keyframes) completos na versão gratuita.
+- ✅ **Formatos 10-bit não funcionam direito** (ex.: H.264 10-bit 4:2:2), nem HDR10+/Dolby Vision. Na prática, o
+  gratuito trabalha bem com 8-bit → **o OBS grava em 8-bit SDR** (seção 2). Se algum arquivo vier 10-bit/HDR, a
+  ingestão converte com FFmpeg antes de exportar.
+- ✅ **Sem encoding acelerado por hardware**: o render sai pela CPU, mais lento. Com episódio semanal isso pesa.
+- ✅ Uma única GPU de processamento no Windows (suficiente: só existe a RTX 3060).
+- ✅ Exclusivos do Studio: Neural Engine (Super Scale, **Speed Warp**, Object Isolation, Magic Mask), redução de ruído
+  de vídeo por IA, film grain, optical blur, edição por texto, vários Resolve FX, Dolby Atmos, Camera Tracker do Fusion.
+- ✅ **Efeitos do Studio usados no gratuito não travam, mas deixam marca d'água** (ex.: correção de lente).
+  → Regra do projeto: o app e os templates **nunca** aplicam efeitos exclusivos do Studio. Timelapse e aceleração
+  saem prontos do FFmpeg (sem Speed Warp); limpeza de voz e legendas ficam com o app.
 
-**Disponível na versão gratuita:**
-- ✅ Importar timeline de FCPXML/EDL/AAF (e OTIO nas versões recentes): cortes, várias trilhas, velocidade constante, marcadores.
+**Ainda não verificado (spike no PC de casa):**
+- ☑️ Importar timeline de FCPXML/EDL/AAF (e OTIO nas versões recentes): cortes, várias trilhas, velocidade constante, marcadores.
 - ⚠️ Transformações (zoom/posição), opacidade, transições, volume e **keyframes** via FCPXML: suporte parcial.
-- ✅ Scripts Python/Lua **rodando de dentro do Resolve** (menu Workspace → Scripts e console).
+- ☑️ Scripts Python/Lua **rodando de dentro do Resolve** (menu Workspace → Scripts e console).
   ⚠️ Scripts *externos* (o app controlando o Resolve de fora) costumam ser exclusivos do Studio.
-- ✅ API de scripts: criar projeto, importar mídia, `ImportTimelineFromFile`, `AppendToTimeline`, `AddMarker` (cor, nome, nota),
+- ☑️ API de scripts: criar projeto, importar mídia, `ImportTimelineFromFile`, `AppendToTimeline`, `AddMarker` (cor, nome, nota),
   `SetProperty` (zoom/pan/crop **estáticos**), cor do clipe, LUT, fila de render. A API não cria keyframes.
-- ✅ Fusion (Text+, keyframes), LUTs, color page, Fairlight (EQ, dinâmica, normalização de áudio), importar legendas SRT.
-- ✅ 1080p60 sem limitação (o limite da versão gratuita é UHD 60 fps).
-
-**Exclusivo do Studio (impacta o projeto):**
-- ⚠️ Decodificação **e** codificação por GPU de H.264/HEVC no Windows → timeline pesada com gravações do OBS e render pela CPU.
-- ✅ Recursos de IA (Voice Isolation, Magic Mask, legendas automáticas), redução de ruído de vídeo e parte dos Resolve FX.
-  Nenhum é essencial: o app cobre voz, legendas e máscaras não são necessárias.
+- ☑️ LUTs, color page e importação de legendas SRT.
+- ⚠️ Decodificação de H.264/HEVC por GPU no Windows: a pesquisa só fala de *encoding*. Se o gratuito também não
+  decodificar pela GPU, a timeline com as gravações do OBS fica pesada (daí a mídia intermediária abaixo).
+- ⚠️ HEVC (H.265) 8-bit no Windows: a própria pesquisa recomenda confirmar nas notas de versão; por isso o padrão é H.264.
 
 **Estratégia:**
 - **Rota A (base):** o app gera FCPXML/OTIO + SRT e você importa pelo menu File → Import.
@@ -485,12 +514,20 @@ Duas formas de verificar: (a) liberar a busca na web para confirmar na documenta
   aplica a LUT e configura o preset de render.
 - Zooms animados e VFX: **renderizados pelo app** na trilha acima do original (ou composição Fusion importada, se o spike aprovar).
 - Desempenho: o app gera **mídia intermediária DNxHR LQ/ProRes Proxy só dos trechos usados**, para a timeline rodar leve sem
-  decodificação por GPU. O render final em H.264 sai pela CPU no Resolve, ou o app renderiza com NVENC a partir de um export intermediário.
+  decodificação por GPU.
+- **Render final (encoding sem GPU no gratuito)**, em duas rotas, escolhidas pela medição do spike:
+  1. *Direto no Resolve pela CPU* (H.264): mais simples. Serve se um episódio de 30–50 min renderizar em tempo aceitável.
+  2. *Resolve exporta um intermediário (DNxHR SQ ou ProRes 422) e o app codifica com NVENC* (`cronista render`):
+     usa a RTX 3060 e deixa o render bem mais rápido. Custo: o intermediário ocupa dezenas de GB por episódio
+     (vai para o HD e é apagado após o upload).
+- Antes de cogitar o Studio (US$ 295), medir as duas rotas. O plano não depende de nenhum recurso do Studio.
 
 **Checklist do spike (antes da Fase 6):**
 - Importar um FCPXML de teste com corte, velocidade, zoom com keyframe, transição, volume, marcador e relink para os masters.
 - Rodar um script interno de teste (criar projeto, importar, marcadores, LUT).
-- Medir a fluidez da timeline com master H.264 × proxy DNxHR.
+- Medir a fluidez da timeline com master H.264 × proxy DNxHR (confirma se há decodificação por GPU).
+- Testar um arquivo HEVC 8-bit gravado pelo OBS.
+- Medir o tempo de render de 10 min de timeline pela CPU e pela rota intermediário + NVENC.
 - Se o desempenho for ruim, gerar mídia intermediária só dos trechos usados.
 
 ## 6.6 Shorts (todas as plataformas)
@@ -607,6 +644,8 @@ Só se avança com os critérios da fase anterior cumpridos.
 | HD único com as gravações brutas | Backup imediato do que é pequeno (banco, marcadores, roteiros); NAS/nuvem depois; política de retenção |
 | PC de desenvolvimento sem GPU | Fallback CPU, mocks e fixtures sintéticas; testes de GPU só no PC de casa |
 | Gabarito atrasado | Fase 1 não depende dele; a partir da Fase 2 ele é obrigatório para medir qualidade |
+| Render lento no Resolve gratuito (sem encoding por GPU) | Medir no spike; rota intermediário + NVENC pelo app (seção 6.5) |
+| Efeito exclusivo do Studio deixar marca d'água | App e templates nunca usam recursos do Studio; timelapse e limpeza de voz feitos fora do Resolve |
 | Licença de música gerada por IA | Verificar uso comercial antes de monetizar; Biblioteca de Áudio do YouTube como padrão seguro |
 | Sistema universal acerta menos que um ajustado por jogo | Perfis declarativos aprendidos com o feedback da revisão |
 
@@ -625,7 +664,8 @@ Só se avança com os critérios da fase anterior cumpridos.
 - Sem facecam (seções 6.6 e 6.7).
 
 **Em aberto:**
-1. Verificar na prática os itens ⚠️ da seção 6.5 (Resolve gratuito), com o Resolve instalado no PC de casa.
+1. Verificar na prática os itens ☑️/⚠️ da seção 6.5 (FCPXML, scripts, decodificação por GPU, HEVC e tempo de render),
+   com o Resolve instalado no PC de casa. Os limites gerais do gratuito já foram confirmados pela pesquisa do criador.
 2. Testar se a FIFINE SC3 serve como dispositivo de marcação (seção 4).
 3. Gravar a gameplay de teste (~30 min, com faixas separadas e marcadores) e anotar o gabarito.
 4. Modelo de thumbnail do canal (seção 6.7): definir juntos.

@@ -18,11 +18,14 @@ gratuito + roteiro de narração, para vídeos de "100 dias". Usuário único (o
   no núcleo. Refinamentos por jogo só em perfis declarativos (YAML) aprendidos com o feedback; leitores de mods são opcionais.
 - **"Dia" é fictício:** unidade de progresso da série, definida pela hotkey `Início Dia N`, não pelo relógio do jogo.
 - **Fala ao vivo tem prioridade:** o roteiro só complementa (explica decisões, o porquê, o que vem a seguir) nos
-  espaços sem fala ao vivo. Sem voz sintética. Texto sem "cara de IA" (skill `/humanizar`).
+  espaços sem fala ao vivo. Sem voz sintética. Texto sem "cara de IA" (skill `/humanizar`, adaptada do Humanizer, MIT; ver seção 6 do plano).
 - **Custo zero:** tudo local (RTX 3060 12 GB). Claude só via Claude Code no plano Pro (sem API); entradas compactas.
 - **LLM local só para tarefas curtas e fechadas**, com saída em JSON Schema validada por Pydantic.
 - **Caminho de mão única** app → Resolve; efeitos sempre reversíveis (trilha acima do original).
-- Gravação: OBS em Hybrid MP4, faixa 1 = mix, 2 = jogo, 3 = microfone. Nunca analisar o mix. Sem facecam.
+- Gravação: OBS em Hybrid MP4, H.264 8-bit SDR (NV12, Rec. 709), faixa 1 = mix, 2 = jogo, 3 = microfone.
+  Nunca analisar o mix. Sem facecam.
+- **Resolve gratuito:** nunca gerar nada que dependa de recurso do Studio (Speed Warp, Magic Mask, Super Scale,
+  redução de ruído de vídeo etc.), porque deixa marca d'água. Limites e estratégia de render na seção 6.5 do plano.
 
 ## Ambientes
 
