@@ -3,7 +3,10 @@
 > Nome provisório. Aplicação pessoal que transforma dezenas de horas de gameplay gravada no OBS em uma
 > **timeline pré-montada no DaVinci Resolve** + **roteiro de narração** para vídeos de "100 dias".
 
-Data: 2026-11-12 · Status: rascunho para aprovação
+Criado em 2026-11-12 · Status: planejamento aprovado em linhas gerais; próxima etapa = detalhar a Fase 1.
+
+Documentos relacionados:
+- [01-historico-de-decisoes.md](01-historico-de-decisoes.md): cada pergunta feita durante o planejamento e a resposta/decisão tomada.
 
 ---
 
@@ -13,7 +16,8 @@ Clone o repositório, abra o Claude Code na pasta e cole:
 
 ```
 Estou retomando o projeto Cronista (app pessoal de edição de gameplays de 100 dias).
-Leia docs/00-plano-mestre.md inteiro, que é a fonte de verdade de tudo que já decidimos.
+Leia docs/00-plano-mestre.md inteiro, que é a fonte de verdade de tudo que já decidimos,
+e docs/01-historico-de-decisoes.md para o contexto de cada decisão.
 Depois vamos responder as decisões em aberto (seção 9) e detalhar a Fase 1 em
 docs/fase-1-fundacao.md, com tarefas, critérios de aceite e testes (use a skill criar-plano).
 ```
@@ -49,15 +53,22 @@ Checklist do PC de casa:
 + (opcional) logs/eventos emitidos por mods do jogo.
 
 **Saída:**
-1. Timeline para o DaVinci Resolve (cortes, trechos de farm em timelapse, marcadores coloridos por tipo de momento).
+1. Timeline para o DaVinci Resolve (cortes, trechos de farm em timelapse, B-roll, cartelas "Dia N", marcadores coloridos por tipo de momento).
 2. Roteiro de narração sugerido, no estilo de fala do próprio criador, sem "cara de IA".
-3. Candidatos a Shorts/Reels (trechos verticais 9:16 + gancho sugerido).
+3. Acabamento automático e reversível: mixagem, zooms, cor, música e VFX de template (seção 6.4).
+4. Candidatos a Shorts/Reels (trechos verticais 9:16 + gancho sugerido), para divulgar o canal em outras plataformas.
 
-**Fora de escopo (por enquanto):** renderizar o vídeo final, gerar voz sintética, multiusuário/SaaS.
+**Modelo de trabalho:** a máquina faz o trabalho braçal (assistir 25 h e separar o que presta), e o toque criativo
+final fica com o criador no Resolve. É assim que os grandes criadores do formato trabalham: gravam boa parte da
+jornada e compactam com edição e storytelling.
+
+**Fora de escopo (por enquanto):** render final dentro do app, voz sintética, multiusuário/SaaS. A arquitetura
+precisa permitir crescer depois.
 
 **Restrições:**
 - Custo zero: tudo local (RTX 3060 12 GB, 32 GB RAM). Claude entra apenas via **Claude Code com o plano Pro**
   (headless `claude -p` ou skill rodada manualmente), sempre com entradas compactas por causa dos limites de uso.
+  O plano Pro **não inclui acesso à API**, por isso o app não chama o Claude diretamente.
 - Jogos variados: Minecraft, Valheim, Terraria, EA FC (modo carreira), GTA V com mods e outros → o núcleo é
   **agnóstico de jogo**, e as especificidades ficam em **adaptadores**.
 
@@ -248,6 +259,20 @@ cronista/
 
 ## 6.1 Modelos locais (Ollama) — papel restrito
 
+**Por que o Ollama falhou no code assist e por que aqui é diferente:** code assist é a tarefa mais difícil para um
+modelo pequeno (muito contexto, raciocínio em várias etapas, código longo). Um modelo de 7–14B não aguenta isso.
+Aqui ele só recebe tarefas curtas e de resposta fechada, e a maior parte do trabalho nem usa LLM: transcrição,
+detecção de voz e classificação de áudio/imagem ficam com modelos especializados.
+
+Exemplo de chamada com formato obrigatório:
+
+```python
+resp = ollama.chat(model=cfg.model, messages=msgs,
+                   format=SegmentLabel.model_json_schema(),
+                   options={"temperature": 0.1})
+label = SegmentLabel.model_validate_json(resp.message.content)
+```
+
 - O LLM local **não programa nem conversa**. Ele faz tarefas curtas e fechadas: rotular um segmento entre classes
   fixas, descrever um frame, resumir um trecho em 2 linhas.
 - Saída sempre com **JSON Schema** (structured outputs do Ollama), temperatura baixa, exemplos no prompt, validação com
@@ -259,6 +284,10 @@ cronista/
 
 ## 6.2 Cenas cinematográficas e timelapse de construção
 
+A IA consegue **reconhecer** uma tomada cinematográfica, mas **não consegue criar** um ângulo que não foi gravado.
+A câmera em primeira pessoa durante uma construção pula de um lado para o outro, e não dá para inventar um ângulo
+fixo a partir disso.
+
 - **Detectar** (Fase 3): movimento de câmera (fluxo óptico: parada, panorâmica, órbita), HUD oculto, beleza visual
   (preditor de estética sobre embeddings CLIP) e cenas por texto ("pôr do sol", "vista da base").
   O resultado vai para uma **biblioteca de B-roll** com tags, usada em aberturas, transições de dia e respiros.
@@ -267,6 +296,7 @@ cronista/
      (similaridade + feature matching/homografia para alinhar) e monta um "progresso". Qualidade variável.
   2. *Ponto de câmera* (recomendado): você marca um local fixo no mundo e, ao fim de cada sessão de construção, volta
      lá e aperta a hotkey `Foto de progresso`. O sistema alinha as tomadas e gera um antes→depois suave.
+     Custa uns 5 segundos por sessão.
   3. *Ferramenta do jogo*: Replay Mod (Minecraft), câmera livre (Valheim devcommands), Rockstar Editor (GTA V),
      replays (EA FC). Nesse caso a IA cataloga e encaixa as tomadas, mas a captura é sua.
 
@@ -296,8 +326,12 @@ Trilhas da timeline exportada:
 | Legendas | Roteiro (SRT importado à parte) |
 
 Marcadores coloridos: tipo do momento, fala sugerida e **sugestões de edição** (zoom aqui, efeito sonoro, freeze-frame + texto, meme).
+Piadas visuais ficam como sugestão, não como efeito aplicado: feitas automaticamente, são o que mais denuncia vídeo feito por IA.
 
-Fica com você: gravar a narração, revisar o acabamento automático (6.4), ajustes finos e render.
+Como o caminho é de mão única, a revisão no Studio (Fase 7) acontece **antes** de exportar.
+
+Fica com você: gravar a narração (o Fairlight do Resolve grava direto na trilha A3), revisar o acabamento automático (6.4),
+ajustes finos e render.
 
 ## 6.4 Acabamento automático (zoom, VFX, cor, mixagem)
 
@@ -314,12 +348,20 @@ Cada efeito tem três modos, configuráveis por projeto:
 | Cor | LUT de "look" por série + normalização de exposição entre sessões | Alta (games quase não precisam) |
 | VFX com template | **Remotion** (React/TSX) gerando overlays com transparência: contador de mortes, cartelas de dia, freeze-frame + texto, barra de progresso; shake em explosões; SFX de meme da sua biblioteca | Média — exige orçamento por minuto para não ficar repetitivo |
 
-Regras anti-"cara de template": limite de efeitos por minuto, variação entre presets, intensidade ligada à nota do momento e
-revisão no Studio. O que a IA decidir com baixa confiança fica só como `sugerir`.
+Regras anti-"cara de template": limite de efeitos por minuto, variação entre presets, intensidade ligada à nota do momento
+(uma morte boba ganha um zoom leve; a morte para um chefe ganha o pacote completo) e revisão no Studio.
+O que a IA decidir com baixa confiança fica só como `sugerir`.
+
+A mixagem básica foi antecipada para a Fase 6 (ganho alto, risco baixo); o restante fica na Fase 8, porque só vale
+polir quando o primeiro corte já estiver bom e o Studio permitir controlar os efeitos.
 
 ## 6.5 Integração com o DaVinci Resolve gratuito
 
-Levantamento feito de memória, **ainda não verificado** no software instalado. ✅ = alta confiança · ⚠️ = testar no spike.
+Levantamento feito de memória, **ainda não verificado**: a busca na web foi interrompida e o Resolve não estava
+instalado no PC do trabalho. ✅ = alta confiança · ⚠️ = testar no spike.
+
+Duas formas de verificar: (a) liberar a busca na web para confirmar na documentação oficial da Blackmagic;
+(b) instalar o Resolve no PC de casa e rodar o kit de teste do spike (mais confiável, e vira o primeiro entregável).
 
 **Disponível na versão gratuita:**
 - ✅ Importar timeline de FCPXML/EDL/AAF (e OTIO nas versões recentes): cortes, várias trilhas, velocidade constante, marcadores.
@@ -345,12 +387,11 @@ Levantamento feito de memória, **ainda não verificado** no software instalado.
 - Desempenho: o app gera **mídia intermediária DNxHR LQ/ProRes Proxy só dos trechos usados**, para a timeline rodar leve sem
   decodificação por GPU. O render final em H.264 sai pela CPU no Resolve, ou o app renderiza com NVENC a partir de um export intermediário.
 
-**Checklist do spike (antes da Fase 6):** importar um FCPXML de teste com corte, velocidade, zoom com keyframe, transição,
-volume e marcador; rodar um script interno de teste; medir a fluidez da timeline com master H.264 × proxy DNxHR.
-
-Antes da Fase 6: **spike** de validação do que o Resolve gratuito importa de FCPXML (velocidade, transições,
-volume, marcadores, relink) e do desempenho de decodificação dos masters. Se necessário, gerar mídia
-intermediária só dos trechos usados.
+**Checklist do spike (antes da Fase 6):**
+- Importar um FCPXML de teste com corte, velocidade, zoom com keyframe, transição, volume, marcador e relink para os masters.
+- Rodar um script interno de teste (criar projeto, importar, marcadores, LUT).
+- Medir a fluidez da timeline com master H.264 × proxy DNxHR.
+- Se o desempenho for ruim, gerar mídia intermediária só dos trechos usados.
 
 ---
 
