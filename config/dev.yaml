@@ -1,0 +1,11 @@
+# Ambiente dev: PC do trabalho, sem GPU. Caminhos pessoais ficam em dev.local.yaml (fora do git).
+env: dev
+data_dir: data          # relativo à raiz do repositório
+ffmpeg: ffmpeg
+ffprobe: ffprobe
+expected_fps: "60/1"    # 60 fps exatos (nunca 59,94)
+proxy_height: 360
+proxy_crf: 28
+video_extensions: [".mp4", ".mkv"]
+gpu_poll_seconds: 5
+log_level: INFO

@@ -1,0 +1,11 @@
+# Ambiente prod: PC de casa (RTX 3060). Masters no HD e cache no SSD: ajustar em prod.local.yaml (fora do git).
+env: prod
+data_dir: data
+ffmpeg: ffmpeg
+ffprobe: ffprobe
+expected_fps: "60/1"
+proxy_height: 360
+proxy_crf: 28
+video_extensions: [".mp4", ".mkv"]
+gpu_poll_seconds: 5
+log_level: INFO

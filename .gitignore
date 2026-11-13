@@ -8,6 +8,10 @@ data/
 # Exceção: assets do brand kit são versionados (migrar para Git LFS se crescerem)
 !packages/brand-kit/**
 
+# Exceção: amostras reais pequenas para testes (poucos MB). Fixtures sintéticas e clipes do kit de teste do
+# Resolve não são versionados: são gerados por script em cada máquina, em data/fixtures/ (nunca nesta pasta).
+!services/engine/tests/fixtures/**
+
 # Configuração: dev.yaml/prod.yaml são versionados; caminhos de cada máquina ficam nos *.local.yaml
 config/*.local.yaml
 

@@ -1,0 +1,147 @@
+{
+  "$defs": {
+    "MarkerKind": {
+      "enum": [
+        "momento",
+        "morte_falha",
+        "engracado",
+        "conquista",
+        "novo_dia",
+        "construcao",
+        "foto_progresso",
+        "cinematica"
+      ],
+      "title": "MarkerKind",
+      "type": "string"
+    },
+    "MediaProbe": {
+      "description": "Resultado do `ffprobe` de um arquivo de gravação.",
+      "properties": {
+        "audio_streams": {
+          "default": 0,
+          "title": "Audio Streams",
+          "type": "integer"
+        },
+        "bit_depth": {
+          "default": 8,
+          "title": "Bit Depth",
+          "type": "integer"
+        },
+        "duration_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration S"
+        },
+        "fps": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fps"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height"
+        },
+        "interrupted": {
+          "default": false,
+          "title": "Interrupted",
+          "type": "boolean"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "pix_fmt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pix Fmt"
+        },
+        "video_codec": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Video Codec"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "MediaProbe",
+      "type": "object"
+    },
+    "StageResult": {
+      "description": "Saída de uma etapa do pipeline, persistida como `result.json` no cache.",
+      "properties": {
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "title": "StageResult",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CronistaContracts"
+}
