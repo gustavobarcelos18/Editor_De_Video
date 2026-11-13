@@ -1,0 +1,10 @@
+{
+  "name": "cronista",
+  "private": true,
+  "packageManager": "pnpm@12.18.0",
+  "scripts": {
+    "gen:contracts": "pnpm --filter @cronista/contracts gen",
+    "lint": "pnpm --filter @cronista/studio lint",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
