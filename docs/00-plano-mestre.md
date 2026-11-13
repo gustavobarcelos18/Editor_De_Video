@@ -19,12 +19,14 @@ Estou retomando o projeto Cronista (app pessoal de edição de gameplays de 100 
 Leia docs/00-plano-mestre.md inteiro, que é a fonte de verdade de tudo que já decidimos,
 e docs/01-historico-de-decisoes.md para o contexto de cada decisão.
 Depois vamos responder as decisões em aberto (seção 9) e detalhar a Fase 1 em
-docs/fase-1-fundacao.md, com tarefas, critérios de aceite e testes (use a skill criar-plano).
+docs/fase-1-fundacao.md, com tarefas, critérios de aceite e testes.
 ```
 
 Checklist do PC de casa:
 - [ ] DaVinci Resolve (gratuito), Python 3.12 + uv, Node.js LTS + pnpm, FFmpeg, Ollama, Git
 - [ ] Drivers NVIDIA/CUDA da RTX 3060 atualizados
+- [ ] OBS 30.2 ou mais novo (⚠️ de memória: versão mínima para Hybrid MP4 com marcadores; confirmar na Fase 1), com o
+      servidor obs-websocket ativado (Ferramentas → Configurações do servidor WebSocket) para o gravador de marcadores
 - [ ] OBS com faixas de áudio separadas (seção 2)
 - [ ] Responder as decisões em aberto (seção 9)
 
@@ -84,7 +86,8 @@ crescer depois.
 **Restrições:**
 - Custo zero: tudo local (RTX 3060 12 GB, 32 GB RAM). Claude entra apenas via **Claude Code com o plano Pro**
   (headless `claude -p` ou skill rodada manualmente), sempre com entradas compactas por causa dos limites de uso.
-  O plano Pro **não inclui acesso à API**, por isso o app não chama o Claude diretamente.
+  O plano Pro **não inclui acesso à API**, por isso o app nunca chama a API do Claude: usa só o Claude Code
+  (skill rodada à mão ou `claude -p`).
 - Jogos variados: Minecraft, Valheim, Terraria, EA FC (modo carreira), GTA V com mods e outros → o núcleo é
   **universal (agnóstico de jogo)**. Funciona bem sem nenhuma configuração por jogo; um **perfil de jogo** declarativo
   (YAML, sem código) só refina, e é aprendido com o feedback da revisão. Mods que emitem eventos são bônus opcionais,
@@ -97,7 +100,7 @@ crescer depois.
 | Referência | Conta |
 |---|---|
 | Taxa de compressão típica do formato | 30:1 a 50:1 |
-| Vídeo final de 30–50 min | **≈ 20–35 h de gravação bruta** |
+| Vídeo final de 30–50 min | **≈ 20–35 h de gravação bruta** na faixa central (~40:1); nos extremos, 15 h (30 min a 30:1) a ~42 h (50 min a 50:1) |
 | Média por "dia" (fictício) | 25 h ÷ 100 dias ≈ **15 min de gravação por dia** |
 
 A conta parte da duração do vídeo final, não do relógio do jogo: como o "dia" é fictício (seção 4), vale para
@@ -108,21 +111,31 @@ tende a ficar sem "respiro" de farm/timelapse e com poucas falhas para gerar hum
 
 **Armazenamento:** 1080p60 em NVENC CQP ~22 fica em ~10–20 GB/h → 25 h ≈ 250–500 GB.
 → **Masters no HD de 2,5 TB**. **Proxies 360p (~0,5 GB/h), cache e banco no SSD** (é ali que a análise lê o tempo todo).
+O áudio original fica sempre dentro do vídeo (o master guarda as três faixas). Os WAVs extraídos por faixa são só
+cópias de trabalho para a análise e o waveform (~0,7 GB/h por faixa, ~35 GB para jogo + microfone em 25 h): ficam no
+cache do SSD e podem ser apagados e regenerados do master. Se o spike exigir WAVs na timeline do Resolve (seção 6.3),
+os usados passam a ficar no HD, junto dos masters.
+
+**Stems processados são sempre WAVs.** A partir da Fase 6, as trilhas A1 e A2 recebem stems com ducking e cadeia de
+voz (seção 6.3). Eles não cabem dentro do MP4: são WAVs novos, referenciados pela timeline, e ficam no HD, em
+`exports`, enquanto o projeto do Resolve existir. Isso vale independentemente do resultado do spike. O tamanho depende
+de o stem cobrir a sessão inteira (~0,7 GB/h por faixa) ou só os trechos usados (bem menos); definir no plano da Fase 6.
 
 **Sessões de duração variável:** o vídeo final é um só, mas sai de várias sessões de tamanhos diferentes
 (ex.: 3 h, 6 h, 10 h). Uma sessão costuma cobrir vários "dias", e um "dia" pode começar numa sessão e terminar em
-outra: o contador de dias continua de uma sessão para a seguinte (seção 4).
+outra: a divisão continua de uma sessão para a seguinte, até o próximo `Novo dia` (seção 4).
 
 **Configuração do OBS sugerida:**
 - Contêiner: **Hybrid MP4** (decidido): sobrevive a quedas e grava os marcadores do OBS dentro do arquivo, que o
   Cronista usa como fonte primária do tempo dos marcadores (ver seção 4). Se a gravação cair, o arquivo fica
-  fragmentado e não finalizado; a ingestão faz um remux sem recodificar (`ffmpeg -c copy`) antes de usar.
+  fragmentado e não finalizado; a ingestão faz um remux sem recodificar (`ffmpeg -map 0 -c copy`) antes de usar.
+  O `-map 0` é obrigatório: sem ele o FFmpeg copia só um vídeo e uma faixa de áudio, e as faixas 2 e 3 se perdem.
   ⚠️ Confirmar no spike que o Resolve abre o arquivo remuxado.
 - **60 fps exatos** (decidido): Vídeo → FPS comuns → 60, nunca 59,94. A timeline do Resolve, os timelapses, as
   cartelas e tudo que o app renderizar usam 60 fps, para os cortes não derivarem.
 - **Vídeo 8-bit SDR** (o Resolve gratuito não lida bem com 10-bit/HDR, seção 6.5): encoder NVENC **H.264**,
   formato de cor **NV12**, espaço de cor **Rec. 709**, faixa parcial. Nunca P010/I010 nem HDR. HEVC 8-bit só depois
-  de aprovado no spike do Resolve. A ingestão confere com `ffprobe` e avisa (ou converte) se vier 10-bit.
+  de aprovado no spike do Resolve. A ingestão confere com `ffprobe`; se vier 10-bit, avisa e converte para 8-bit (seção 6.5).
 - Evitar pausar a gravação e a divisão automática de arquivo. O sistema tolera as duas coisas (seção 4), mas é menos
   um ponto de falha.
 - Faixa 1 = mix · Faixa 2 = **jogo** · Faixa 3 = **microfone**. (Faixa 4 para Discord/amigos não é necessária:
@@ -143,19 +156,26 @@ Volume absoluto não serve como sinal. A estratégia tem quatro camadas:
    combate só existem na faixa do jogo. Nunca se analisa o mix.
 2. **Microfone → só voz conta.**
    - VAD neural (Silero VAD) separa fala de não-fala. Clique de teclado e respiração são não-fala e são descartados.
-   - Supressão de ruído (DeepFilterNet) antes da transcrição **só se o benchmark da Fase 1 mostrar que melhora o WER**:
+   - Supressão de ruído (DeepFilterNet) antes da transcrição **só se o benchmark de qualidade (início da Fase 2, com o gabarito) mostrar que melhora o WER**:
      o Whisper já é robusto a ruído, e áudio filtrado às vezes piora a transcrição.
    - Características usadas: fala, risada, grito, aumento súbito de tom/energia **em relação à sua média da sessão**.
+   - Risada e grito costumam cair como não-fala no VAD. Por isso o classificador de eventos sonoros (o mesmo da faixa
+     do jogo) roda também na faixa do microfone, só para os rótulos de risada e grito. O VAD decide o que vai para a
+     transcrição; teclado e respiração continuam descartados nos dois caminhos.
 3. **Jogo → classificar o som, não medir o volume.**
    - Classificador de eventos sonoros pré-treinado (PANNs/BEATs/CLAP), com rótulos como explosão, música, impacto, multidão.
    - **Linha de base adaptativa:** mediana móvel por sessão e por "contexto visual" (descoberto automaticamente agrupando cenas parecidas, ex.: menu, área aberta, cidade, caverna; nada declarado por jogo). Pisada em pedra
      é repetitiva e periódica, então gera **baixa novidade**. O que pontua é a *mudança* em relação ao baseline
      (novidade espectral), não a altura do som.
    - Detecção de periodicidade: sons rítmicos e constantes (passos, mineração, corte de árvore) são sinal de **rotina/farm**.
+   - Ordem das fases: na Fase 2 a linha de base é só **por sessão**. O recorte por contexto visual entra na Fase 3,
+     quando os embeddings de cena existem, e recalcula apenas a novidade (cache por etapa, seção 5.3).
 4. **Calibração universal, refinada pelo uso.** Os pesos padrão valem para qualquer jogo (o perfil genérico).
    O feedback da revisão (aceito/rejeitado) recalibra primeiro os pesos do perfil genérico e, quando houver dados
    suficientes de um jogo, gera um **perfil de jogo declarativo** (YAML) com ajustes finos, por exemplo "neste jogo,
-   som repetitivo de impacto = farm". O perfil é aprendido, não escrito à mão, e nunca é requisito (Fase 7).
+   som repetitivo de impacto = farm". Os pesos do perfil são aprendidos, não escritos à mão. O perfil aceita também
+   campos manuais opcionais, que o feedback não tem como aprender (regiões de HUD para OCR, janela de lookback,
+   rótulos ignorados). Nunca é requisito (Fase 7).
 
 ---
 
@@ -165,10 +185,10 @@ Volume absoluto não serve como sinal. A estratégia tem quatro camadas:
 o sistema olha para trás (janela padrão de 60–90 s, ajustável no perfil) e encontra os limites reais do momento
 usando mudança de cena, picos de áudio e fala.
 
-Hotkeys sugeridas (obrigatórias: `Momento` e `Início Dia N`; as demais são opcionais):
+Hotkeys sugeridas (obrigatórias: `Momento` e `Novo dia`; as demais são opcionais):
 
 > **O "dia" é fictício.** É só a unidade de progresso e passagem de tempo da série, e não precisa corresponder a
-> um dia do jogo (no EA FC ou no GTA V, por exemplo, não existe dia natural). Por isso a hotkey `Início Dia N` é
+> um dia do jogo (no EA FC ou no GTA V, por exemplo, não existe dia natural). Por isso a hotkey `Novo dia` é
 > obrigatória: ela é a única fonte universal de capítulos. OCR de dia/hora, quando o jogo mostra, serve só para conferência.
 > A divisão gravada é uma proposta: a contagem que aparece na tela é decidida na edição (ver "Dias na tela" abaixo).
 
@@ -178,21 +198,21 @@ Hotkeys sugeridas (obrigatórias: `Momento` e `Início Dia N`; as demais são op
 | `Morte/Falha` | Falha ou morte | Alimenta o humor e o "sofrimento" do desafio |
 | `Engraçado` | Momento cômico | Prioridade para Shorts |
 | `Conquista` | Chefe, objetivo, item raro | Pico da narrativa |
-| `Início Dia N` | Marca o começo de um novo dia | Estrutura os capítulos (sem depender de OCR) |
-| `Construção ▶/■` | Início e fim de uma construção | **Único caso com início e fim**: vira timelapse antes/depois |
+| `Novo dia` | Marca onde um novo dia começa (sem número) | Estrutura os capítulos (sem depender de OCR); o número é da edição |
+| `Construção ▶/■` | Início e fim de uma construção (uma tecla só, que alterna) | **Único caso com início e fim**: vira timelapse antes/depois |
 | `Foto de progresso` | Tomada do ponto de câmera fixo | Alinhada com as anteriores para o timelapse de construção (ver 6.2) |
 | `Cinemática` | Tomada bonita/intencional | Vai direto para a biblioteca de B-roll |
 
-**Implementação:** a cada toque, o marcador é gravado por **dois caminhos independentes**:
+**Implementação:** a cada toque, o marcador é gravado em **dois registros separados**:
 
 1. **Marcador do OBS dentro do arquivo (fonte primária).** O OBS tem marcadores próprios para gravações em Hybrid
    MP4. Tecnicamente o formato chama isso de "capítulo", mas é só um ponto no tempo dentro do arquivo, com um nome:
    **não cria capítulo no vídeo final**, serve para indicar "aconteceu algo aqui". Os capítulos do vídeo (os dias) vêm
-   só da hotkey `Início Dia N`. O OBS grava o marcador **no tempo da mídia**, então pausas já ficam descontadas, e ele
-   vai dentro do arquivo certo, mesmo com divisão automática. Nome: `tipo|dia|id`.
+   só da hotkey `Novo dia`. O OBS grava o marcador **no tempo da mídia**, então pausas já ficam descontadas, e ele
+   vai dentro do arquivo certo, mesmo com divisão automática. Nome: `tipo|id` (sem número de dia).
 2. **Diário `.markers.jsonl` (redundância e fonte da verdade dos detalhes).** Não grava "segundos desde o início",
    e sim um **diário de eventos** com relógio monotônico + UTC: `recording_started`, `paused`, `unpaused`,
-   `file_changed` (com o caminho do novo arquivo), `recording_stopped` e cada `marker` (tipo, dia, id).
+   `file_changed` (com o caminho do novo arquivo), `recording_stopped` e cada `marker` (tipo, id).
 
 Na ingestão, o engine **reconstrói o tempo de mídia** a partir do diário (tempo do toque − início − pausas acumuladas,
 dentro do arquivo vigente) e **reconcilia** com os marcadores do arquivo pelo `id`:
@@ -201,31 +221,37 @@ dentro do arquivo vigente) e **reconcilia** com os marcadores do arquivo pelo `i
 - divergem → usa o marcador do arquivo e registra um aviso no relatório da sessão;
 - toque fora de gravação → ignorado com aviso.
 
+Os dois registros são feitos pelo mesmo programa (opção A, abaixo). A redundância cobre a falha de um dos registros
+(arquivo sem marcadores, diário corrompido), **não** a falha do programa: se ele travar ou não estiver aberto, o toque
+não fica em nenhum dos dois (dúvida em aberto, seção 9, item 9).
+
 Testes com fixtures sintéticas cobrem: gravação simples, com pausas, com divisão de arquivo e com queda (arquivo sem
 `recording_stopped`). Um erro de algumas centenas de ms não importa, porque o lookback de 60–90 s absorve.
 A versão mínima do OBS e o nome exato da API de marcadores serão confirmados na Fase 1.
 
-**Quem cria o marcador (em aberto, seção 9).** ⚠️ De memória: o OBS 30.2+ tem uma hotkey nativa ("Adicionar marcador
-de capítulo") que funciona sem instalar nada, mas é **uma tecla só e não guarda tipo nem dia**: todo toque viraria
-`Momento`, e o `Início Dia N` ficaria indistinguível. Para ter tipo e dia, algo precisa criar o marcador com nome:
-- **A (recomendada): programa do Cronista ao lado do OBS, via obs-websocket.** Cria o marcador do OBS com nome
+**Quem cria o marcador (decidido: opção A).** ⚠️ De memória: o OBS 30.2+ tem uma hotkey nativa ("Adicionar marcador
+de capítulo") que funciona sem instalar nada, mas é **uma tecla só e não guarda o tipo**: todo toque viraria
+`Momento`, e o `Novo dia` ficaria indistinguível. Para ter o tipo, algo precisa criar o marcador com nome:
+- **A (escolhida): programa do Cronista ao lado do OBS, via obs-websocket.** Cria o marcador do OBS com nome
   (⚠️ requisição `CreateRecordChapter`; versão mínima a confirmar), escreve o diário a partir dos eventos de
-  gravação, pausa e troca de arquivo do próprio OBS, guarda o contador de dias e escuta num lugar só as hotkeys
+  gravação, pausa e troca de arquivo do próprio OBS, sabe se há uma construção aberta e escuta num lugar só as hotkeys
   globais, as teclas F13–F24 e a FIFINE (MIDI/HID). Precisa estar aberto durante a gravação.
 - **B: script Lua dentro do OBS.** Não exige instalar nada. ⚠️ Confirmar se a função de marcador com nome está
   exposta ao Lua. A FIFINE ficaria à parte. (Script Python dentro do OBS foi descartado: exige uma versão específica
   do Python instalada e configurada no OBS, e não há certeza de que a função de marcador esteja exposta.)
-- **C: só a hotkey nativa.** Zero instalação; tipo e dias seriam marcados depois, no Studio. Quebra a regra de
-  `Início Dia N` por hotkey.
+- **C: só a hotkey nativa.** Zero instalação; tipos e divisões de dia seriam marcados depois, no Studio. Quebra a regra de
+  `Novo dia` por hotkey.
 
-**Contador de dias.** Uma tecla não carrega número: `Início Dia N` incrementa um contador guardado por projeto, que
-continua de uma sessão para a outra (o "dia" pode atravessar sessões). Uma sessão que começa sem `Início Dia N`
-continua o dia vigente.
+**Sem contador de dias na gravação** (decisão do criador; substitui o contador persistido por projeto). O número
+do dia é o da edição, não o de quanto se jogou, então o programa não tem como saber. `Novo dia` grava só **onde**
+um dia começa, sem número. A ordem das divisões sai da ordem das sessões e do tempo dentro delas; um "dia" pode
+atravessar sessões, e uma sessão que começa sem `Novo dia` continua o dia anterior.
 
 **Dias na tela são decididos na edição** (decisão do criador). A contagem de dias aparece na tela do vídeo, mas o
-número final e onde cada dia começa são decididos na hora da edição. O que é gravado com `Início Dia N` é uma
+número final e onde cada dia começa são decididos na hora da edição. O que é gravado com `Novo dia` é uma
 **proposta** de divisão: o app usa para montar a narrativa, as cartelas e o painel da série, e o criador ajusta no
-Studio ou no Resolve. Por isso não há tecla de correção, e as cartelas/contador de dias saem editáveis (seção 6.3).
+Studio ou no Resolve, onde também se define o número de cada dia. Por isso não há tecla de correção, e as
+cartelas/contador de dias saem editáveis (seção 6.3).
 `Construção ▶` sem o `■` correspondente é fechada no fim da sessão, com aviso.
 
 **Jogo rodando como administrador.** ⚠️ De memória: se o jogo roda elevado (ou o anti-cheat bloqueia teclas), um
@@ -267,7 +293,7 @@ livre. Como o pipeline é retomável, pausar não perde trabalho.
               │                                                   │
               ▼                                                   ▼
  ┌──────────────────────────── ENGINE (Python) ─────────────────────────────┐
- │ Ingestão → Proxies → Análise Áudio → Análise Vídeo → Adaptador do Jogo   │
+ │ Ingestão → Proxies → Análise Áudio → Análise Vídeo → Perfil Jogo (opc.)  │
  │        → Fusão de Sinais → Segmentos+Nota → Narrativa → Montagem → Export │
  │   (cada etapa: idempotente, com cache por hash, retomável)               │
  └──────────────┬──────────────────────────────────────────┬────────────────┘
@@ -292,7 +318,7 @@ livre. Como o pipeline é retomável, pausar não perde trabalho.
 | LLM de roteiro | **Claude Code (Pro)** via skills do repositório | Melhor qualidade de escrita, custo zero extra |
 | API/Jobs | FastAPI + fila de jobs persistida no banco | Simples para um usuário; troca por Redis depois, se precisar |
 | Banco | SQLite (SQLAlchemy + Alembic) | Zero infraestrutura; migração para Postgres sem reescrever |
-| Contratos | JSON Schema → Pydantic (Py) e TypeScript (gerados) | Uma fonte de verdade entre engine e UI |
+| Contratos | Pydantic (fonte) → JSON Schema/OpenAPI (FastAPI) → tipos TypeScript gerados. *Substitui a direção "JSON Schema → Pydantic" anterior (decisão D2, histórico §26)* | Uma fonte de verdade entre engine e UI; o Pydantic já é a fonte no engine (seção 6.1) |
 | UI | **Next.js + React + TypeScript** | Stack que você já domina; player com waveform e timeline |
 | Export | OpenTimelineIO → FCPXML (+ EDL de reserva) + SRT | Importa no Resolve **gratuito** (não depende da API do Studio) |
 
@@ -301,7 +327,14 @@ livre. Como o pipeline é retomável, pausar não perde trabalho.
 > Frameworks de ML padronizados em **PyTorch + ONNX Runtime**, para evitar um segundo framework de GPU com CUDA
 > próprio no Windows. Por isso o OCR é RapidOCR (ONNX) e não PaddleOCR. O DeepFilterNet está sem atualização desde
 > 2023 e pode não instalar com Python 3.12 e PyTorch recentes (⚠️ verificar); como ele só entra se melhorar o WER, a
-> falta dele não bloqueia nada.
+> falta dele não bloqueia a análise. A cadeia de voz da mixagem precisa de redução de ruído de qualquer forma (a
+> faixa 3 é crua) e não depende dele: ver a alternativa na seção 6.4.
+>
+> **Exceção aceita: CTranslate2.** O faster-whisper roda sobre o CTranslate2, que traz dependências de CUDA próprias
+> (cuBLAS/cuDNN), fora do par PyTorch + ONNX Runtime. A exceção é aceita porque o faster-whisper é a melhor opção
+> de transcrição para 12 GB, e trocá-lo custaria mais do que isolar a dependência. ⚠️ De memória: confirmar na Fase 1
+> as versões de cuBLAS/cuDNN que o CTranslate2 exige e se elas convivem com as do PyTorch no mesmo ambiente; se
+> conflitarem, a transcrição roda num processo/ambiente separado.
 
 **Por que não NestJS/C# agora:** para um usuário, um backend único em Python evita uma ponte entre linguagens.
 A arquitetura em portas/adaptadores permite colocar um gateway Nest depois, se o projeto virar produto.
@@ -319,9 +352,9 @@ A arquitetura em portas/adaptadores permite colocar um gateway Nest depois, se o
 ### 5.4 Modelo de domínio
 
 ```
-Projeto (uma série de 100 dias = um vídeo de 30–50 min; ex.: "100 dias Valheim Hardcore", jogo, perfil, contador de dias)
+Projeto (uma série de 100 dias = um vídeo de 30–50 min; ex.: "100 dias Valheim Hardcore", jogo, perfil; números dos dias definidos na edição)
  └─ Sessão (uma gravação de duração variável: 3 h, 6 h, 10 h…; arquivos master/proxy; faixas)
-     ├─ Marcador (hotkey: tipo, t, dia)
+     ├─ Marcador (hotkey: tipo, t, id; sem número de dia: o dia de cada trecho sai da posição dos `Novo dia`)
      ├─ Sinal (série temporal: energia_fala, novidade_audio_jogo, movimento, similaridade_cena…)
      ├─ Evento (pontual: morte, risada, chefe, mudança de cena, evento do mod)
      └─ Segmento (intervalo + classe [farm, combate, exploração, construção, falha, humor, conquista, menu/loading]
@@ -334,7 +367,7 @@ Timeline (versão exportável: clipes, velocidades/timelapse, marcadores, legend
 ### 5.5 Estrutura do repositório
 
 ```
-cronista/
+Editor_De_Video/                 # raiz do repositório (o pacote Python se chama `cronista`)
 ├─ apps/
 │  └─ studio/                    # Next.js — revisão e edição
 ├─ services/
@@ -359,13 +392,13 @@ cronista/
 │  ├─ brand-kit/                 # configuração e assets do brand kit (versionados; Git LFS se crescerem)
 │  └─ vfx-templates/             # Remotion (overlays)
 ├─ integrations/
-│  ├─ obs/                       # gravador de marcadores (mecanismo em aberto, seção 4) + guia do OBS
+│  ├─ obs/                       # gravador de marcadores (opção A: programa ao lado do OBS via obs-websocket, seção 4) + guia do OBS
 │  ├─ resolve/                   # script interno do DaVinci Resolve
 │  └─ game-mods/                 # emissores de eventos por jogo (quando houver)
 ├─ profiles/                     # perfis de jogo declarativos (YAML), gerados/ajustados pelo feedback
 ├─ config/                       # dev.yaml / prod.yaml (versionados, sem caminhos pessoais) + *.local.yaml (fora do git)
 ├─ .claude/skills/               # /roteirizar, /humanizar (o perfil de voz é um guia de estilo usado por elas)
-├─ docs/                         # este plano + planos por fase + ADRs
+├─ docs/                         # este plano + histórico de decisões + planos por fase
 └─ data/  (fora do git)          # projects/<id>/{masters→HD, proxies, cache, exports}
 ```
 
@@ -383,7 +416,8 @@ cronista/
   Caminhos de mídia nunca fixos no código.
 - Testes que precisam de GPU ou de mídia real são marcados (`@pytest.mark.gpu`, `@pytest.mark.media`) e rodam só no PC de casa.
 - Fixtures sintéticas geradas com FFmpeg (vídeo de teste + tons/ruídos em faixas separadas) permitem testar o pipeline
-  antes de existir gameplay real.
+  antes de existir gameplay real. São geradas em `data/fixtures/` (fora do git), nunca em
+  `services/engine/tests/fixtures/`, que é versionada e guarda só amostras reais pequenas.
 
 **Fluxo git:**
 - Branch por fase (`fase/1-fundacao`, `fase/2-audio`, …), merge na `main` via pull request ao fim da fase.
@@ -454,7 +488,9 @@ label = SegmentLabel.model_validate_json(resp.message.content)
 - Porta `LLMProvider` com adaptadores `OllamaProvider`, `ClaudeCodeProvider` (`claude -p`) e `NullProvider` (só heurística).
   Cada tarefa declara qual provedor usa, e a troca é por configuração.
 - 12 GB de VRAM: um modelo por vez. O orquestrador agenda as etapas por modelo e descarrega com `keep_alive: 0`.
-- A Fase 1 inclui um benchmark contra o gabarito. A tarefa só fica no modelo local se atingir a precisão mínima.
+- A Fase 1 mede só desempenho na RTX 3060 (velocidade e VRAM), porque não depende do gabarito. A precisão de cada
+  tarefa é medida contra o gabarito (obrigatório a partir da Fase 2), e a tarefa só fica no modelo local se atingir a
+  precisão mínima.
 
 ## 6.2 Cenas cinematográficas e timelapse de construção
 
@@ -486,18 +522,32 @@ Regras de montagem automática:
   (mais confiável que retime em massa no Resolve).
 - Orçamento de tempo por dia/capítulo e ritmo guiado pelas métricas de referência.
 
-Trilhas da timeline exportada:
+Trilhas da timeline exportada (no Resolve, a trilha de número maior fica por cima):
 
 | Trilha | Conteúdo |
 |---|---|
 | V1 | Gameplay cortada + timelapses |
-| V2 | B-roll / cinemáticas |
-| V3 | Cartelas e contador "Dia N" (sugestão do app; número final decidido na edição, por isso editáveis) |
-| A1 | Áudio do jogo |
-| A2 | Sua narração ao vivo (microfone) |
+| V2 | Efeitos renderizados sobre a gameplay (zoom/punch-in, shake), logo acima do clipe original (seção 6.4) |
+| V3 | B-roll / cinemáticas |
+| V4 | Overlays com transparência (Remotion): contador de mortes, freeze-frame + texto, barra de progresso |
+| V5 | Cartelas e contador "Dia N" (sugestão do app; número final decidido na edição, por isso editáveis), sempre por cima |
+| A1 | Áudio do jogo (a partir da Fase 6: stem com ducking e loudness aplicados pelo app) |
+| A2 | Sua narração ao vivo (microfone; a partir da Fase 6: stem com a cadeia de voz aplicada) |
 | A3 | Vazia — narração complementar gravada a partir do roteiro (só onde A2 não tem fala) |
-| A4 | Vazia — música |
+| A4 | Música (vazia até a Fase 8; depois, trilhas da biblioteca com corte no beat e ducking) |
+| A5 | SFX: sons do brand kit (transição de dia, "som de morte") e SFX de meme (Fase 8) |
+| A6 | Áudio do jogo cru (faixa 2 original), desativado; só existe quando A1 recebe um stem processado |
+| A7 | Microfone cru (faixa 3 original), desativado; só existe quando A2 recebe um stem processado |
 | Legendas | Roteiro (SRT importado à parte) |
+
+Os stems crus em A6/A7 cumprem a regra "stems mixados + stems crus abaixo" da seção 6.4: para desfazer a mixagem,
+basta desativar A1/A2 e ativar A6/A7.
+
+A numeração das trilhas é fixa. Trilhas ainda sem conteúdo (A3 sempre; V2, V4, A4 e A5 antes da Fase 8) são criadas
+vazias, para as demais não mudarem de número. A única exceção são A6/A7, que ficam no fim e só existem quando há stem
+processado. ⚠️ De memória: o FCPXML não tem trilhas, e sim "lanes", e é o Resolve que decide em qual trilha cada clipe
+cai; se o FCPXML não garantir o layout nem criar trilhas vazias, o script interno (Rota B) cria e organiza. Item do
+spike (seção 6.5).
 
 Timeline em **60 fps exatos**, igual à gravação (seção 2).
 
@@ -505,10 +555,16 @@ Cartelas e contador de dias: como o número que aparece na tela é decidido na e
 gravados na imagem. Duas formas, a escolher no spike: (1) título editável no Resolve (Text+/macro do Fusion, gratuito)
 criado pelo FCPXML ou pelo script interno; (2) PNG/MOV com transparência que o app regenera depois do ajuste dos dias
 no Studio. ⚠️ Não se sabe se o FCPXML cria título editável no Resolve gratuito.
+A opção 2 depende do Studio, que só chega na Fase 7. Na Fase 6 vale a opção 1; se o spike reprovar o título editável,
+os números vêm de um arquivo de dias do projeto, editado à mão, que o app lê para regenerar as cartelas.
+As cartelas de template Remotion da Fase 8 (seção 6.4) são a opção 2: imagem renderizada, sempre regenerada pelo app a
+partir dos dias ajustados no Studio, nunca com número fixo. O título editável da opção 1 continua disponível.
 
 ⚠️ As faixas de áudio estão todas dentro do mesmo MP4. Ainda não se sabe se o Resolve respeita, vindo do FCPXML, qual
 faixa embutida vai para qual trilha (faixa 2 → A1, faixa 3 → A2). Se não respeitar, o app passa a referenciar os
 WAVs extraídos de cada faixa na ingestão, alinhados ao vídeo pelo tempo do arquivo. Teste no spike (seção 6.5).
+Esse teste decide só as faixas cruas (o FCPXML mínimo da Fase 1 e as trilhas A6/A7): os stems processados de A1/A2
+são sempre WAVs (seção 2).
 
 Marcadores coloridos: tipo do momento, fala sugerida e **sugestões de edição** (zoom aqui, efeito sonoro, freeze-frame + texto, meme).
 ⚠️ O FCPXML não tem campo de cor de marcador, então a cor vem por outro caminho: EDL de marcadores no formato do
@@ -529,7 +585,7 @@ Cada efeito tem três modos, configuráveis por projeto:
 
 | Efeito | Como | Confiabilidade |
 |---|---|---|
-| Mixagem | Ducking do jogo sob a voz (sidechain calculado no app), normalização EBU R128 (−14 LUFS), cadeia de voz (redução de ruído, EQ, compressor), stems mixados + stems crus abaixo | Alta |
+| Mixagem | Ducking do jogo sob a voz ao vivo e sob os trechos em que o roteiro prevê narração (sidechain calculado no app), loudness com alvo de −14 LUFS integrado **na mixagem final** (alvo do YouTube; medido pelo método ITU-R BS.1770/EBU R128, cujo alvo de broadcast é −23 LUFS), cadeia de voz (redução de ruído, EQ, compressor), stems mixados + stems crus abaixo | Alta |
 | Música | Biblioteca local sem direitos autorais, com tags de humor/BPM; escolha por clima do capítulo, cortes no beat, ducking | Média-alta |
 | Zoom/punch-in | Em picos (grito, morte, risada), centrado na região de ação (saliência), com easing | Alta |
 | Cor | LUT de "look" por série + normalização de exposição entre sessões | Alta (games quase não precisam) |
@@ -541,6 +597,19 @@ O que a IA decidir com baixa confiança fica só como `sugerir`.
 
 A mixagem básica foi antecipada para a Fase 6 (ganho alto, risco baixo); o restante fica na Fase 8, porque só vale
 polir quando o primeiro corte já estiver bom e o Studio permitir controlar os efeitos.
+
+Detalhes da mixagem:
+- **Redução de ruído da voz não depende do benchmark de WER.** A faixa 3 é crua (teclado, respiração) e é ela que
+  vira a trilha A2 do vídeo, então a cadeia de voz sempre limpa o áudio. Ferramenta escolhida na Fase 6, ouvindo o
+  resultado: DeepFilterNet, se instalar; senão, os filtros do próprio FFmpeg (⚠️ de memória: `arnndn`, que é RNNoise,
+  e `afftdn`). O benchmark da Fase 2 decide só se a limpeza entra **antes da transcrição**.
+- **Ducking sob a narração complementar.** A narração da trilha A3 é gravada depois, no Resolve, justamente onde não
+  há fala ao vivo. Para o jogo não ficar em volume cheio ali, o stem de A1 também é abaixado nos trechos em que o
+  roteiro (SRT) prevê narração. Se a narração gravada sair muito diferente do previsto, o criador desfaz ativando o
+  stem cru (A6) ou ajusta no Fairlight. ⚠️ A confirmar com o criador (seção 9, item 9).
+- **−14 LUFS vale para a mixagem final, não para cada stem.** Os stems de A1 e A2 saem nivelados entre si, com folga.
+  O loudness integrado é medido e ajustado no render final, quando narração, música e SFX já estão somados: no
+  Resolve (medidor de loudness do Fairlight) ou no `cronista render` (filtro `loudnorm` do FFmpeg).
 
 **Kit de identidade do canal (brand kit):** uma única configuração versionada, consumida por VFX, cartelas, shorts e
 thumbnails, para o canal ter identidade visual **e** sonora:
@@ -613,8 +682,10 @@ As fontes são a documentação oficial e o teste prático:
 - **Render final (encoding sem GPU no gratuito)**, em duas rotas, escolhidas pela medição do spike:
   1. *Direto no Resolve pela CPU* (H.264): mais simples. Serve se o vídeo de 30–50 min renderizar em tempo aceitável.
   2. *Resolve exporta um intermediário (DNxHR SQ ou ProRes 422) e o app codifica com NVENC* (`cronista render`):
-     usa a RTX 3060 e deixa o render bem mais rápido. Custo: o intermediário ocupa dezenas de GB por render
-     (vai para o HD e é apagado após o upload).
+     usa a RTX 3060 e deixa o render bem mais rápido. Custo: o intermediário ocupa ~65–110 GB por render de 30–50 min
+     (⚠️ de memória: DNxHR SQ em 1080p60 ≈ 290 Mbps; conferir no spike)
+     (vai para o HD e é apagado após o upload). ⚠️ De memória: o Resolve no Windows lê ProRes, mas historicamente
+     não exporta; até o spike confirmar, o intermediário padrão é DNxHR.
 - Antes de cogitar o Studio (US$ 295), medir as duas rotas. O plano não depende de nenhum recurso do Studio.
 
 **Checklist do spike** (o kit de teste é montado na Fase 1, no PC do trabalho; roda no PC de casa assim que o Resolve
@@ -624,13 +695,29 @@ for instalado, e obrigatoriamente antes da Fase 6):
   numa timeline de 60 fps exatos.
 - Conferir se o FCPXML manda a faixa 2 do MP4 para A1 e a faixa 3 para A2; se não, repetir com os WAVs extraídos.
 - Importar marcadores coloridos por EDL de marcadores no formato do Resolve e conferir cor, nome e duração.
-- Abrir um Hybrid MP4 de uma gravação interrompida de propósito, depois do remux com `ffmpeg -c copy`.
+- Abrir um Hybrid MP4 de uma gravação interrompida de propósito, depois do remux com `ffmpeg -map 0 -c copy`, e
+  conferir que as três faixas de áudio continuam lá.
+- Numa gravação normal (não interrompida), conferir que o `ffprobe -show_chapters` lê os marcadores do OBS com o nome
+  `tipo|id`. As fixtures do PC do trabalho são geradas pelo FFmpeg e podem não reproduzir o formato real do OBS.
+- Na gravação interrompida de propósito (a do teste de remux), conferir com `ffprobe -show_chapters` se os marcadores do OBS sobreviveram
+  (antes e depois do remux). Se não sobreviverem, o diário `.markers.jsonl` é a única fonte nesse caso (seção 4).
 - Criar uma cartela "Dia N" editável (título Text+/macro do Fusion) pelo FCPXML e pelo script interno, e trocar o número no Resolve.
 - Rodar um script interno de teste (criar projeto, importar, marcadores, LUT).
 - Medir a fluidez da timeline com master H.264 × proxy DNxHR (confirma se há decodificação por GPU).
 - Testar um arquivo HEVC 8-bit gravado pelo OBS.
+- Importar um overlay com transparência (MOV com canal alfa, como os do Remotion) numa trilha acima da gameplay.
+- Conferir se o FCPXML cria clipes/trilhas de áudio **desativados** (A6/A7, seção 6.3); se não, o script interno desativa.
+- Importar o SRT do roteiro e conferir o alinhamento com a timeline.
+- Conferir se a página Deliver oferece exportação em ProRes no Windows (rota do intermediário); se não, só DNxHR.
 - Medir o tempo de render de 10 min de timeline pela CPU e pela rota intermediário + NVENC.
 - Se o desempenho for ruim, gerar mídia intermediária só dos trechos usados.
+- Conferir em quais trilhas o Resolve põe os clipes do FCPXML (layout V1–V5 / A1–A7 da seção 6.3) e se dá para criar
+  trilhas vazias (A3, A4); se não, o script interno cria e organiza.
+- Gerar o FCPXML de teste pelo mesmo caminho que o app vai usar (OTIO → FCPXML). ⚠️ De memória: o adaptador FCPXML do
+  OTIO é um plugin à parte e limitado; se ele não cobrir títulos, keyframes, clipes desativados e áudio por faixa, o
+  app escreve o FCPXML direto.
+- Rodar o script interno sem janela própria. ⚠️ De memória: versões recentes do gratuito (19.1+) teriam restringido
+  a interface gráfica de scripts; conferir no `README.txt`.
 
 ## 6.6 Shorts (todas as plataformas)
 
@@ -660,38 +747,46 @@ Cada fase vira um plano de execução próprio (`docs/fase-N-*.md`), com tarefas
 Só se avança com os critérios da fase anterior cumpridos.
 
 ### Fase 1 — Fundação, ingestão e esqueleto de ponta a ponta
+> **Dividida em 1A (esqueleto e ingestão), 1B (marcadores e prévia) e 1C (itens do PC de casa).** O plano de execução
+> está em [fase-1-fundacao.md](fase-1-fundacao.md); a lista abaixo continua valendo como escopo total.
+
 - Monorepo, tooling (uv, ruff, mypy, pytest; pnpm, eslint), contratos, banco + migrações.
 - Ambientes `dev` (sem GPU) e `prod` (RTX 3060); fixtures sintéticas com FFmpeg; GitHub Actions (lint, tipos, testes,
   em Ubuntu e Windows).
 - Orquestrador de pipeline com cache por hash, jobs persistidos, retomada e logs estruturados; projeto incremental por
   sessão; política de GPU (pausa com o OBS gravando ou jogo em tela cheia, seção 4.1).
-- Gravador de marcadores (mecanismo da seção 4, decisão em aberto) com diário `.markers.jsonl` e contador de dias por
-  projeto; guia de configuração do OBS (Hybrid MP4, 60 fps exatos, H.264 8-bit, microfone em duas fontes, jogo como
+- Gravador de marcadores (opção A da seção 4: programa ao lado do OBS via obs-websocket) com diário `.markers.jsonl`
+  e `Novo dia` sem número; guia de configuração do OBS (Hybrid MP4, 60 fps exatos, H.264 8-bit, microfone em duas fontes, jogo como
   administrador).
 - Spike do dispositivo de marcação (FIFINE SC3: HID/MIDI ou marcador por áudio; senão, alternativas).
 - **Kit de teste do Resolve gratuito** (seção 6.5): FCPXML de exemplo (corte, velocidade, zoom com keyframe,
   transição, volume, marcadores, relink), script interno mínimo, clipes 8-bit H.264 e HEVC gerados com FFmpeg e um
   roteiro de checagem com campos para anotar o resultado. Montado no PC do trabalho, executado no PC de casa.
-- Ingestão: leitura das faixas, validação (8-bit, 60 fps), remux de arquivo interrompido, proxy 360p no SSD
+- Ingestão: leitura das faixas, validação (8-bit, 60 fps), remux de arquivo interrompido (`-map 0 -c copy`, mantendo as três faixas), proxy 360p no SSD
   (H.264 + AAC com uma faixa só e `faststart`, para tocar no navegador, que só reproduz a primeira faixa de áudio),
-  extração de áudio por faixa em WAV (alimenta a análise e o waveform do Studio).
+  extração de áudio por faixa em WAV no cache do SSD (alimenta a análise e o waveform do Studio; regenerável do
+  master, seção 2). A faixa de áudio do proxy é o mix (faixa 1), só para ouvir; a análise nunca usa o mix.
 - **Esqueleto de ponta a ponta:** gravação + marcadores → cortes simples ao redor de cada marcador → **prévia MP4
   renderizada com FFmpeg** (valida o fluxo sem depender do Resolve) + FCPXML mínimo (validado no Resolve quando possível).
 - CLI: `cronista ingest <pasta>` / `cronista status` / `cronista preview`.
-- **Benchmark** dos modelos na RTX 3060 (no PC de casa), incluindo o WER do Whisper com e sem DeepFilterNet.
+- **Benchmark de desempenho** dos modelos na RTX 3060 (no PC de casa): velocidade e VRAM. Não depende do gabarito;
+  a qualidade (WER, precisão) é medida no início da Fase 2.
 - **Gabarito:** formato e ferramenta de anotação prontos. A anotação (2–3 h, começando pela gameplay de teste de ~30 min)
   acontece quando o criador puder; ela é obrigatória a partir da Fase 2.
-- ✅ Aceite: ingerir 10 h sem intervenção, retomar após interrupção, proxies e marcadores corretos, prévia MP4 gerada
+- ✅ Aceite: ingerir sem intervenção uma gravação de qualquer duração (não há mínimo de horas; vale a gameplay de
+  teste ou fixtures sintéticas), retomar após interrupção, proxies e marcadores corretos, prévia MP4 gerada
   a partir dos marcadores, CI verde.
 
 ### Fase 2 — Análise de áudio
-- Microfone: (DeepFilterNet, se aprovado no benchmark) → Silero VAD → faster-whisper (com timestamps por palavra) → risada, grito, picos relativos.
-- Jogo: classificação de eventos sonoros, baseline adaptativo, novidade espectral, detector de periodicidade (rotina).
+- **Benchmark de qualidade** contra o gabarito (primeira tarefa da fase): WER do Whisper com e sem DeepFilterNet.
+- Microfone: (DeepFilterNet, se aprovado no benchmark) → Silero VAD → faster-whisper (com timestamps por palavra) → picos relativos. Risada e grito vêm do classificador de eventos sonoros, que roda também no microfone (seção 3).
+- Jogo: classificação de eventos sonoros, baseline adaptativo por sessão (o recorte por contexto visual entra na Fase 3), novidade espectral, detector de periodicidade (rotina).
 - Saída: sinais e eventos de áudio no banco + relatório HTML da sessão (gráfico de sinais × tempo).
 - ✅ Aceite: no gabarito, teclado e respiração **não** geram eventos; fala transcrita com WER aceitável; trechos rítmicos detectados como rotina.
 
 ### Fase 3 — Análise de vídeo e perfis de jogo
 - Detecção de cena, movimento, embeddings de frames, detecção de menu/loading/pausa/idle — tudo universal.
+- Contexto visual (agrupamento de cenas parecidas) → refina a linha de base do áudio do jogo calculada na Fase 2 (seção 3).
 - Tomadas cinematográficas e biblioteca de B-roll (seção 6.2).
 - OCR (RapidOCR) em regiões de HUD opcionais, definidas no perfil do jogo (placar no EA FC, dia/hora quando visível),
   lido em frames do master (no proxy 360p o texto fica ilegível).
@@ -709,17 +804,22 @@ Só se avança com os critérios da fase anterior cumpridos.
 - ✅ Aceite: ≥ 85% dos momentos do gabarito aparecem no top de candidatos; farm identificado como farm.
 
 ### Fase 5 — Narrativa e roteiro
-- Estrutura por dia/capítulo, arco (setup → sofrimento → virada → conquista), alocação de tempo por capítulo.
+- Estrutura por dia/capítulo, arco com os beats da seção 5.4 (setup → conflito → falha → virada → conquista; conflito e falha são o "sofrimento"), alocação de tempo por capítulo.
 - `story-pack.json` compacto (eventos, resumos, citações suas, frames-chave) dentro do limite do plano Pro.
-- Skills Claude Code: `/roteirizar`, `/humanizar`, perfil de voz. Fallback com LLM local.
+- Skills Claude Code: `/roteirizar`, `/humanizar`, perfil de voz. Sem Claude disponível, o fallback é o
+  `NullProvider`: sem roteiro escrito, só os marcadores com o contexto de cada trecho (o LLM local não escreve roteiro,
+  seção 6.1).
 - ✅ Aceite: roteiro de uma sessão real lido por você sem soar artificial; cada fala ligada a um segmento.
 
 ### Fase 6 — Montagem e exportação
-- Montagem automática: cortes, timelapse/aceleração do farm, transições de dia, ritmo de referência.
+- Montagem automática: cortes, timelapse/aceleração do farm, B-roll (V3), transições de dia com cartelas "Dia N"
+  editáveis (seção 6.3), ritmo de referência.
 - Exportação OTIO → FCPXML (+ EDL), marcadores coloridos por tipo (EDL de marcadores ou Rota B, conforme o spike),
   SRT do roteiro, relink para os masters do HD, faixas de áudio mapeadas em A1/A2 (ou WAVs extraídos).
 - Candidatos a Shorts (seção 6.6: até 13 s, gancho nos 3 primeiros segundos).
-- Mixagem automática básica: ducking + normalização de loudness + cadeia de voz (ganho alto com baixo risco).
+- Mixagem automática básica: ducking (sob a voz ao vivo e sob os trechos de narração previstos no roteiro) + stems
+  nivelados + cadeia de voz com redução de ruído própria (ganho alto com baixo risco). O alvo de −14 LUFS é conferido
+  na mixagem final (seção 6.4).
 - ✅ Aceite: importar no DaVinci Resolve gratuito sem erro, com mídia linkada e marcadores visíveis.
 
 ### Fase 7 — Studio de revisão e aprendizado
@@ -731,7 +831,8 @@ Só se avança com os critérios da fase anterior cumpridos.
 ### Fase 8 — Acabamento automático e identidade do canal
 - Brand kit (identidade visual e sonora, seção 6.4).
 - Zooms/punch-ins, LUT de série, música da biblioteca com corte no beat.
-- Pacote de templates Remotion (contador de mortes, cartelas, freeze-frame + texto, barra de progresso) + SFX.
+- Pacote de templates Remotion (contador de mortes, cartelas regeneráveis pelo app, que são a opção 2 da
+  seção 6.3, freeze-frame + texto, barra de progresso) + SFX.
 - Modos sugerir / editável / renderizado por efeito, controlados no Studio; orçamento de efeitos por minuto.
 - ✅ Aceite: vídeo exportado precisando só de narração gravada e ajustes finos; efeitos reversíveis no Resolve.
 
@@ -764,7 +865,7 @@ Só se avança com os critérios da fase anterior cumpridos.
 | Processamento disputando a GPU com o jogo | Pausa automática com o OBS gravando ou jogo em tela cheia; pipeline retomável (seção 4.1) |
 | Hotkeys bloqueadas por jogo como administrador ou anti-cheat | OBS/gravador de marcadores também como administrador ou dispositivo físico (MIDI/HID) (seção 4) |
 | Gravação interrompida deixa o Hybrid MP4 sem finalizar | Remux sem recodificar na ingestão; testado no spike (seções 2 e 6.5) |
-| Dependências de ML quebrando no Windows/Python 3.12 | PyTorch + ONNX Runtime só; RapidOCR; DeepFilterNet opcional; CI também em Windows (seção 5.2) |
+| Dependências de ML quebrando no Windows/Python 3.12 | PyTorch + ONNX Runtime só (exceção: CTranslate2 do faster-whisper, em processo separado se conflitar); RapidOCR; DeepFilterNet opcional; CI também em Windows (seção 5.2) |
 
 ## 9. Decisões
 
@@ -775,20 +876,65 @@ Só se avança com os critérios da fase anterior cumpridos.
 - Processamento a cada sessão de gravação, com painel da série.
 - Código no PC do trabalho; produção no PC de casa.
 - Fluxo git: branch por fase, commits no nome do criador, revisão com Opus, CI no GitHub Actions.
-- O "dia" é fictício (unidade de progresso); hotkey `Início Dia N` obrigatória (seção 4).
+- O "dia" é fictício (unidade de progresso); hotkey `Novo dia` obrigatória (seção 4).
 - Fala ao vivo tem prioridade; o roteiro é complemento explicativo (seção 6).
 - Contêiner Hybrid MP4; marcadores do OBS dentro do arquivo + diário de eventos, com reconciliação (seções 2 e 4).
 - Sem facecam (seções 6.6 e 6.7).
 - Produto: **um único vídeo de 30–50 min** por série, montado a partir de sessões de duração variável (3 h, 6 h, 10 h…) (seções 0.1, 1 e 2).
 - O app não substitui o Resolve como editor, mas pode codificar vídeo quando é só execução (seção 1).
-- Marcador = "aconteceu algo aqui" (ponto no tempo dentro do arquivo); os capítulos do vídeo vêm só de `Início Dia N`,
-  com contador de dias persistido por projeto (seção 4).
-- A contagem de dias aparece na tela, mas o número final e a divisão são decididos na edição; `Início Dia N` é proposta,
+- Marcador = "aconteceu algo aqui" (ponto no tempo dentro do arquivo); os capítulos do vídeo vêm só de `Novo dia`
+  (seção 4). O "contador de dias persistido por projeto" foi substituído (ver abaixo).
+- Quem cria o marcador: **opção A**, programa do Cronista ao lado do OBS via obs-websocket (seção 4).
+- Sem contador de dias na gravação: `Novo dia` (antes `Início Dia N`) grava só onde o dia começa; o número de cada
+  dia é definido na edição. `Construção ▶/■` é uma tecla só, que alterna (seção 4).
+- A contagem de dias aparece na tela, mas o número final e a divisão são decididos na edição; `Novo dia` é proposta,
   e cartelas/contador saem editáveis (seções 4 e 6.3).
 - Gravação e timeline em 60 fps exatos; microfone em duas fontes no OBS (RNNoise só na do mix) (seção 2).
 - Processamento automático ao fim da gravação, com pausa enquanto o OBS grava ou um jogo em tela cheia está aberto (seção 4.1).
 - ML em PyTorch + ONNX Runtime; OCR com RapidOCR em frames do master; DeepFilterNet só se melhorar o WER (seção 5.2).
+- Exceção aceita: o CTranslate2 (base do faster-whisper) traz CUDA próprio; se conflitar com o PyTorch, a
+  transcrição roda em processo/ambiente separado (seção 5.2).
+- Trilhas da timeline: V1 gameplay, V2 efeitos renderizados, V3 B-roll, V4 overlays, V5 cartelas; A1 jogo, A2 voz
+  ao vivo, A3 narração complementar, A4 música, A5 SFX, A6/A7 stems crus desativados (seção 6.3).
 - CI em Ubuntu e Windows; configuração versionada sem caminhos pessoais + `*.local.yaml` fora do git (seção 5.6).
+- Benchmark da Fase 1 só de desempenho; WER e precisão contra o gabarito no início da Fase 2 (seções 6.1 e 7).
+- Sem Claude disponível, o roteiro não cai para o LLM local: fallback = `NullProvider` (Fase 5).
+- Aceite da Fase 1 sem mínimo de horas: qualquer duração de gravação é válida (Fase 1).
+- Áudio original sempre dentro do vídeo; WAVs extraídos são cache regenerável no SSD; proxy toca o mix (seção 2, Fase 1).
+- Planos de fase não dependem de skills fora do repositório (`CLAUDE.md`, seção 0).
+- Remux de gravação interrompida sempre com `ffmpeg -map 0 -c copy`, para não perder as faixas 2 e 3 (seções 2 e 6.5).
+- Linha de base do áudio do jogo: por sessão na Fase 2; o recorte por contexto visual entra na Fase 3 (seção 3).
+- Risada e grito no microfone vêm do classificador de eventos sonoros, não do VAD (seção 3).
+- A redução de ruído da cadeia de voz (mixagem) não depende do benchmark de WER; DeepFilterNet ou filtros do FFmpeg,
+  escolhidos na Fase 6 (seção 6.4).
+- −14 LUFS é o alvo da mixagem final, medido no render, não de cada stem (seção 6.4).
+- Clipes do kit de teste do Resolve e fixtures sintéticas são gerados por script em cada máquina (o `.gitignore`
+  ignora `*.mp4`/`*.mov`/`*.wav`); amostras reais pequenas podem ser versionadas em `services/engine/tests/fixtures/`.
+  As fixtures geradas vão para `data/fixtures/`, nunca para essa pasta (seção 5.6).
+- Cartelas na Fase 6: título editável (opção 1) ou arquivo de dias editado à mão; a regeneração pelo Studio só a
+  partir da Fase 7 (seção 6.3).
+- Decisões ficam no histórico (`docs/01-historico-de-decisoes.md`), não em ADRs; a raiz do repositório é
+  `Editor_De_Video`, e `cronista` é o nome do pacote Python (seção 5.5).
+- Stems processados de A1/A2 são sempre WAVs no HD (`exports`); o teste de faixas embutidas do spike vale só para as
+  faixas cruas (seções 2 e 6.3).
+- Numeração de trilhas fixa: trilhas sem conteúdo são criadas vazias; só A6/A7 são condicionais (seção 6.3).
+- Perfil de jogo: pesos aprendidos com o feedback + campos manuais opcionais (HUD, lookback, rótulos ignorados) (seção 3).
+- Cartelas: título editável na Fase 6; as de template Remotion (Fase 8) são regeneradas pelo app, nunca com número
+  fixo (seções 6.3 e 6.4).
+- Os dois registros do marcador (OBS + diário) vêm do mesmo programa: a redundância não cobre a falha dele (seção 4).
+- Arquivo 10-bit na ingestão: avisa e converte para 8-bit (seções 2 e 6.5).
+- O app nunca chama a API do Claude; só o Claude Code, por skill manual ou `claude -p` (seção 1).
+- Fase 1 dividida em 1A (esqueleto e ingestão, `dev`), 1B (marcadores e prévia) e 1C (itens do PC de casa); o aceite
+  da Fase 1 equivale a 1A + 1B; a 1C bloqueia a Fase 2 (benchmark e gabarito) e o spike do Resolve antes da Fase 6
+  ([fase-1-fundacao.md](fase-1-fundacao.md)).
+- **D1:** gravador de marcadores em Python, processo separado do engine; o engine (serviço sempre aberto) dispara o
+  processamento ao observar `recording_stopped` no diário (seções 4 e 4.1). ⚠️ Confirmar na 1B as bibliotecas de
+  hotkey global e de obs-websocket para Python 3.12.
+- **D2:** contratos Pydantic → JSON Schema/OpenAPI → TypeScript gerado; a seção 5.2 foi atualizada.
+- **D3:** gabarito em CSV (`inicio, fim, classe, nota`) + script de validação e prévia; o Studio não é necessário.
+- **D4:** sem Fase 1.5; a prévia MP4 da 1B cumpre o papel do rough cut só de marcadores.
+- Marcador que existe só no arquivo (e não no diário): tratado como `Momento`, com aviso no relatório da sessão.
+- Primeira sessão do projeto sem `Novo dia`: abre um dia implícito no início, sem número.
 
 **Em aberto:**
 1. Verificar na prática os itens ☑️/⚠️ da seção 6.5 (FCPXML, scripts, decodificação por GPU, HEVC e tempo de render),
@@ -797,5 +943,55 @@ Só se avança com os critérios da fase anterior cumpridos.
 3. Gravar a gameplay de teste (~30 min, com faixas separadas e marcadores) e anotar o gabarito.
 4. Modelo de thumbnail do canal (seção 6.7): definir juntos.
 5. Identidade visual e sonora do canal: definir juntos (paleta, fontes, vinheta, sons recorrentes).
-6. Quem cria o marcador com tipo e dia no OBS (seção 4): A, programa ao lado do OBS via obs-websocket (recomendada);
-   B, script Lua; C, só a hotkey nativa.
+6. ~~Quem cria o marcador com tipo e dia no OBS~~: **decidido**, opção A, programa ao lado do OBS via obs-websocket
+   (ver "Já decididas" e seção 4).
+7. Sugestões das revisões ainda não decididas (histórico §18 e §19):
+   - ~~Fase 1.5 com rough cut só de marcadores~~: **decidido** (D4, não criar). ~~Dividir a Fase 1~~: **decidido**
+     (1A/1B/1C). ~~D1–D3~~: **decididos** (ver "Já decididas"); respondem as dúvidas dos itens 9 e 10 sobre linguagem
+     do gravador, disparo do processamento, direção dos contratos e ferramenta do gabarito.
+   - Contratos via OpenAPI.
+   - Gabarito com dois gêneros de jogo; critérios de aceite numéricos (ver item 8).
+   - Backup já na Fase 1; política do PC do trabalho.
+   - Retenção × relink: liberar os masters quebra o projeto do Resolve que aponta para eles.
+   - Termos de uso do `claude -p` automatizado; licenças do Remotion e dos modelos; macros do Fusion.
+   - Faixa 2 com "Captura de áudio de aplicativo" no OBS (o áudio do desktop pega notificações, Discord, música).
+   - Importar o teste também como `.otio` no spike; pausar o processamento pelo uso da GPU em vez de detectar tela cheia.
+8. Dúvidas levantadas na terceira revisão (histórico §21), sem resposta ainda:
+   - ~~Primeira sessão do projeto sem `Novo dia`: abre o primeiro dia implicitamente?~~ **Decidido**: sim.
+   - `Construção ▶` sem `■` é fechada no fim da sessão, mas um dia pode atravessar sessões: a construção também
+     deveria continuar na sessão seguinte? (o estado "construção aberta" precisaria ficar no diário).
+   - Fala ao vivo durante um trecho de farm que vira timelapse: descartar, cortar normal ou manter por cima?
+   - Critérios de aceite sem número: "WER aceitável" (Fase 2), "alta precisão" (Fase 3), "top de candidatos" (Fase 4).
+   - Fases 7 e 9 dependem de uma série inteira gravada (~25 h) e de um vídeo publicado.
+   - ⚠️ De memória: Voice Isolation (e talvez Dialogue Leveler) do Fairlight seriam exclusivos do Studio; conferir
+     antes de afirmar "Fairlight completo" (seção 6.5).
+   - Copiar o `README.txt` do Resolve para `docs/referencias/` é seguro se o repositório for público?
+9. Dúvidas levantadas na quarta revisão (histórico §22), sem resposta ainda:
+   - Para que serve o mix com RNNoise? A análise nunca usa a faixa 1 e a timeline usa as faixas 2 e 3; o mix só toca
+     no proxy. Uma fonte única de microfone, sem filtro, nas faixas 1 e 3 seria mais simples (seção 2).
+   - Como o criador sabe que o toque foi registrado com o jogo em tela cheia? Na tecla de construção, que alterna, um
+     toque perdido inverte tudo dali em diante. E se o programa de marcadores não estiver aberto? (seção 4)
+   - ~~Marcador que existe só no arquivo e não no diário~~: **decidido**, `Momento` com aviso (seção 4).
+   - `Cinemática` e `Foto de progresso`: a tomada é antes ou depois do toque? O lookback de 60–90 s só faz sentido
+     para `Momento`, `Morte/Falha`, `Engraçado` e `Conquista` (seção 4).
+   - Ducking do jogo sob a narração complementar: pré-aplicado pelo app nos trechos previstos no roteiro (padrão
+     atual, seção 6.4) ou deixado para o Fairlight?
+   - Métricas de ritmo dos criadores de referência (seção 6): de onde vêm os arquivos de vídeo (baixar do YouTube fere
+     os termos de uso) e em qual fase isso é implementado?
+   - Itens sem fase definida: `cronista render`, mídia intermediária DNxHR, extração das métricas de ritmo,
+     `StorageBackend` e política de retenção.
+   - ~~Direção dos contratos~~: **decidido** (D2), Pydantic → JSON Schema/OpenAPI → TypeScript.
+   - Marcador por áudio da FIFINE (seção 4): se o som do pad cair na faixa do microfone, ele vai para a trilha A2
+     (a voz do vídeo final) e precisa ser removido na mixagem. Vale a pena, ou essa opção sai da lista?
+   - ~~Ferramenta de anotação do gabarito~~: **decidido** (D3), CSV + script de validação.
+10. Dúvidas levantadas na quinta revisão (histórico §24), sem resposta ainda:
+   - ⚠️ O adaptador FCPXML do OTIO dá conta de títulos, keyframes, clipes desativados e áudio por faixa, ou o app
+     escreve o FCPXML direto? (spike, seção 6.5)
+   - ⚠️ O FCPXML garante o layout fixo de trilhas e cria trilhas vazias, ou isso fica com o script interno? (spike)
+   - ⚠️ O script interno (Rota B) funciona no gratuito recente sem interface gráfica própria? (spike)
+   - Timelapse de farm na Fase 6: o áudio do jogo é removido e a música só chega na Fase 8. Fica em silêncio até lá
+     ou mantém o áudio do jogo baixo?
+   - Shorts 9:16 a partir de 1080p: o recorte tem só 608 px de largura e é ampliado ~1,8×. Aceitar a perda, usar
+     fundo desfocado como padrão ou gravar em resolução maior? (seção 6.6)
+   - ~~Quem dispara o processamento e em que linguagem é o gravador~~: **decidido** (D1), engine dispara; gravador em Python.
+   - Stems processados: cobrem a sessão inteira ou só os trechos usados na timeline? (seção 2; plano da Fase 6)

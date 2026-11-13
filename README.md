@@ -3,13 +3,15 @@
 App pessoal que transforma dezenas de horas de gameplay gravada no OBS em uma **timeline pré-montada no
 DaVinci Resolve** + **roteiro de narração**, para vídeos de "100 dias".
 
-Status: planejamento concluído em linhas gerais. Nenhum código ainda. Próxima etapa: detalhar a Fase 1.
+Status: planejamento concluído em linhas gerais. Nenhum código ainda. Fase 1 detalhada e dividida em 1A/1B/1C;
+decisões D1–D4 confirmadas; próxima etapa: começar a 1A.
 
 ## Documentos
 
 | Documento | Conteúdo |
 |---|---|
 | [docs/00-plano-mestre.md](docs/00-plano-mestre.md) | Fonte de verdade: requisitos, arquitetura, stack, produção, fases, riscos |
+| [docs/fase-1-fundacao.md](docs/fase-1-fundacao.md) | Plano de execução da Fase 1 (1A, 1B, 1C) |
 | [docs/01-historico-de-decisoes.md](docs/01-historico-de-decisoes.md) | Cada pergunta do planejamento e a decisão tomada |
 
 ## Retomar em outro PC ou numa nova sessão

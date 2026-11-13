@@ -10,7 +10,8 @@ mas estruturado para escalar.
 - `docs/00-plano-mestre.md`: requisitos, arquitetura, stack, fases, riscos e decisões. Leia antes de propor ou
   implementar qualquer coisa. Se uma ideia contradiz o plano, aponte a contradição em vez de seguir em silêncio.
 - `docs/01-historico-de-decisoes.md`: cada pergunta do planejamento e a decisão tomada.
-- `docs/fase-N-*.md`: plano de execução de cada fase (criado com a skill `criar-plano`, executado com `implementar-plano`).
+- `docs/fase-N-*.md`: plano de execução de cada fase, com tarefas, critérios de aceite e testes. Não depende de
+  nenhuma skill instalada fora do repositório.
 - Toda decisão nova vai para o plano mestre (seção relevante + seção 9) **e** para o histórico. Nunca apague
   informação já conversada; atualize ou marque como substituída.
 
@@ -18,8 +19,9 @@ mas estruturado para escalar.
 
 - **Universal:** o núcleo é agnóstico de jogo e funciona sem nenhuma configuração por jogo. Nada de `if jogo == ...`
   no núcleo. Refinamentos por jogo só em perfis declarativos (YAML) aprendidos com o feedback; leitores de mods são opcionais.
-- **"Dia" é fictício:** unidade de progresso da série, proposta pela hotkey `Início Dia N`, não pelo relógio do jogo.
-  A contagem aparece na tela, mas o número final é decidido na edição: cartelas e contador saem editáveis.
+- **"Dia" é fictício:** unidade de progresso da série, proposta pela hotkey `Novo dia`, não pelo relógio do jogo.
+  A tecla grava só onde o dia começa, **sem número**: o número de cada dia é decidido na edição, e cartelas e
+  contador saem editáveis.
 - **Fala ao vivo tem prioridade:** o roteiro só complementa (explica decisões, o porquê, o que vem a seguir) nos
   espaços sem fala ao vivo. Sem voz sintética. Texto sem "cara de IA" (skill `/humanizar`, adaptada do Humanizer, MIT; ver seção 6 do plano).
 - **Custo zero:** tudo local (RTX 3060 12 GB). Claude só via Claude Code no plano Pro (sem API); entradas compactas.
